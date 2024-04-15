@@ -47,11 +47,12 @@ readonly IMAGE
 
 echo "here 1"
 
-return 0;
 
 # shellcheck disable=SC1090
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"/builder.sh
 
+echo "here 2..."
+return 0;
 echo "source failed..."
 TOOLS_DIR="$(builder::get_tools_dir)"
 readonly TOOLS_DIR
