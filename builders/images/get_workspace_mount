@@ -2,6 +2,7 @@
 
 function get_docker_workspace_mount() {
   # when running inside a docker container, expect /.dockerenv to exist
+  printf "Here!!!" &>/dev/stdout
   if ! [[ -f /.dockerenv ]]; then
     printf "Error: %s must execute inside a docker container\n" "$(basename "${BASH_SOURCE[0]}")" &>/dev/stderr
     exit 1
