@@ -55,7 +55,6 @@ echo "here 2..."
 TOOLS_DIR="$(builder::get_tools_dir)"
 readonly TOOLS_DIR
 echo ${TOOLS_DIR}
-return 0;
 IMAGE_TAGGED="$("${TOOLS_DIR}"/get-builder-image-tagged --image "${IMAGE}")"
 readonly IMAGE_TAGGED
 echo "here 3..."

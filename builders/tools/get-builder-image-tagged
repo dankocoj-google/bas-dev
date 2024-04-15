@@ -97,10 +97,14 @@ declare -r -a DOCKER_BUILD_ARGS=(
   --progress plain
 )
 
+echo "trying to source builder"
 # shellcheck disable=SC1090
 source "${TOOLS_DIR}"/builder.sh
+echo "trying to get workspace mount"
 WORKSPACE_MOUNT="$(builder::get_docker_workspace_mount)"
 readonly WORKSPACE_MOUNT
+echo ${WORKSPACE_MOUNT}
+return 0;
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
