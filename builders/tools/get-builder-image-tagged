@@ -99,7 +99,6 @@ declare -r -a DOCKER_BUILD_ARGS=(
 
 echo "trying to source builder"
 # shellcheck disable=SC1090
-exit 0
 source "${TOOLS_DIR}"/builder.sh
 echo "trying to get workspace mount"
 WORKSPACE_MOUNT="$(builder::get_docker_workspace_mount)"
