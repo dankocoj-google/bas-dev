@@ -82,7 +82,6 @@ if [[ -t 0 ]] && [[ -t 1 ]]; then
   # stdin and stdout are open, assume it's an interactive tty session
   DOCKER_RUN_ARGS+=("--tty")
 fi
-return 0;
 if [[ ${APP_AS_ENTRYPOINT} -eq 1 ]]; then
   # shellcheck disable=SC2068
   docker run \
