@@ -102,11 +102,10 @@ echo "trying to source builder"
 source "${TOOLS_DIR}"/builder.sh
 echo "trying to get workspace mount"
 WORKSPACE_MOUNT="$(builder::get_docker_workspace_mount)"
-exit 0
 
 readonly WORKSPACE_MOUNT
 echo ${WORKSPACE_MOUNT}
-exit 0
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --image)
