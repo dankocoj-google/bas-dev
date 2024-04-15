@@ -52,6 +52,7 @@ echo "here 1"
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"/builder.sh
 
 echo "here 2..."
+return 0;
 TOOLS_DIR="$(builder::get_tools_dir)"
 readonly TOOLS_DIR
 IMAGE_TAGGED="$("${TOOLS_DIR}"/get-builder-image-tagged --image "${IMAGE}")"
