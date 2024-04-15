@@ -101,8 +101,9 @@ echo "trying to source builder"
 # shellcheck disable=SC1090
 source "${TOOLS_DIR}"/builder.sh
 echo "trying to get workspace mount"
-exit 0
 WORKSPACE_MOUNT="$(builder::get_docker_workspace_mount)"
+exit 0
+
 readonly WORKSPACE_MOUNT
 echo ${WORKSPACE_MOUNT}
 exit 0
