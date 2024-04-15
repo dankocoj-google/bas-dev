@@ -57,11 +57,13 @@ readonly TOOLS_DIR
 IMAGE_TAGGED="$("${TOOLS_DIR}"/get-builder-image-tagged --image "${IMAGE}")"
 readonly IMAGE_TAGGED
 echo "here 3..."
+return 0;
 REL_PWD="$(realpath --relative-to="${WORKSPACE}" "$(pwd)")"
 readonly REL_PWD
 WORKSPACE_MOUNT="$(builder::get_docker_workspace_mount)"
 readonly WORKSPACE_MOUNT
 echo "here 4..."
+return 0;
 declare -a DOCKER_RUN_ARGS=(
   "--rm"
   "--interactive"
