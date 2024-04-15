@@ -84,7 +84,7 @@ if [[ -t 0 ]] && [[ -t 1 ]]; then
 fi
 if [[ ${APP_AS_ENTRYPOINT} -eq 1 ]]; then
   # shellcheck disable=SC2068
-  echo "one"
+  echo "one" "${DOCKER_RUN_ARGS[@]}" ${APP} ${IMAGE_TAGGED} "$@"
   docker run \
     "${DOCKER_RUN_ARGS[@]}" \
     --entrypoint="${APP}" \
@@ -92,7 +92,8 @@ if [[ ${APP_AS_ENTRYPOINT} -eq 1 ]]; then
     "$@"
 else
   # shellcheck disable=SC2068
-  echo "two"
+  echo "two" "${DOCKER_RUN_ARGS[@]}" ${APP} ${IMAGE_TAGGED} "$@"
+
   docker run \
     "${DOCKER_RUN_ARGS[@]}" \
     "${IMAGE_TAGGED}" \
