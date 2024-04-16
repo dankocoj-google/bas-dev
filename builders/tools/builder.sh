@@ -106,12 +106,7 @@ function builder::cbuild_debian() {
 function builder::add_aws_env_vars() {
   declare -n args=$1
   args+=(
-    "AWS_ACCESS_KEY_ID"
-    "AWS_SECRET_ACCESS_KEY"
-    "AWS_SESSION_TOKEN"
-    "AWS_REGION"
-    "AWS_DEFAULT_REGION"
-    "AWS_PROFILE"
+    "FAKE_ENV"
   )
 }
 
@@ -176,7 +171,7 @@ function builder::cbuild_al() {
   shift
   local -r cbuild="$(builder::get_tools_dir)"/cbuild
   declare -a env_vars
-  # builder::add_aws_env_vars env_vars
+  builder::add_aws_env_vars env_vars
   declare env_args
   for evar in "${env_vars[@]}"; do
     env_args+=(--env "${evar}")
