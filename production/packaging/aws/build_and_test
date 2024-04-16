@@ -163,6 +163,8 @@ if [[ -n ${AMI_REGIONS[0]} ]]; then
   builder::cbuild_al2 "
 set -o errexit
 set -x
+echo $AWS_ACCESS_KEY_ID
+echo $AWS_SECRET_ACCESS_KEY
 PACKER_LOG=1 packer build -var=regions='${regions}' -var=service=${SERVICE} -var=commit_version=$(git rev-parse HEAD) -var=distribution_dir=dist/aws -var=workspace=/src/workspace production/packaging/aws/common/ami/image.pkr.hcl
 "
 fi
