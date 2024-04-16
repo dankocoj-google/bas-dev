@@ -78,10 +78,10 @@ if [[ -n ${EXTRA_DOCKER_RUN_ARGS} ]]; then
 fi
 echo "here 5..."
 
-if [[ -t 0 ]] && [[ -t 1 ]]; then
-  # stdin and stdout are open, assume it's an interactive tty session
-  DOCKER_RUN_ARGS+=("--tty")
-fi
+# if [[ -t 0 ]] && [[ -t 1 ]]; then
+#   # stdin and stdout are open, assume it's an interactive tty session
+#   DOCKER_RUN_ARGS+=("--tty")
+# fi
 if [[ ${APP_AS_ENTRYPOINT} -eq 1 ]]; then
   # shellcheck disable=SC2068
   echo "one" "${DOCKER_RUN_ARGS[@]}" ${APP} ${IMAGE_TAGGED} "$@"
