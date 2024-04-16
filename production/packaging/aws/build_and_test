@@ -103,6 +103,8 @@ DIST="${WORKSPACE}"/dist
 mkdir -p "${DIST}"/aws
 chmod 770 "${DIST}" "${DIST}"/aws
 
+set -x
+
 printf "==== build AWS artifacts using build-amazonlinux2 =====\n"
 # build nitro enclave image, collect eif artifacts
 readonly IMAGE_URI=bazel/production/packaging/aws/${SERVICE}
@@ -110,6 +112,7 @@ IMAGE_TAG=$(mktemp --dry-run temp-XXXXXX)
 readonly ENCLAVE_NAME=${SERVICE}
 builder::cbuild_al2 $"
 set -o errexit
+set -x
 # extract server docker image into local docker client and retag it
 docker load -i ${SERVER_IMAGE}
 docker tag ${IMAGE_URI}:server_docker_image ${IMAGE_URI}:${IMAGE_TAG}
@@ -133,6 +136,7 @@ function _collect_logs() {
   exit \${STATUS}
 }
 set -o errexit
+set -x
 bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_EXTRA_ARGS} //production/packaging/aws/common/ami:copy_to_dist
 "
 
@@ -145,6 +149,7 @@ function _collect_logs() {
   exit \${STATUS}
 }
 set -o errexit
+set -x
 bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_EXTRA_ARGS} //production/packaging/aws/common/ami:copy_to_dist_proto
 "
 
