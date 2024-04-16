@@ -91,9 +91,10 @@ if [[ ${APP_AS_ENTRYPOINT} -eq 1 ]]; then
     "${IMAGE_TAGGED}" \
     "$@"
 else
+  set -x
   # shellcheck disable=SC2068
   echo "two" "${DOCKER_RUN_ARGS[@]}" ${APP} ${IMAGE_TAGGED} "$@"
-
+  
   docker run \
     "${DOCKER_RUN_ARGS[@]}" \
     "${IMAGE_TAGGED}" \
