@@ -45,24 +45,18 @@ case "${APP_LINK_TARGET}" in
 esac
 readonly IMAGE
 
-echo "here 1"
-
-echo ${APP_LINK_TARGET}
 # shellcheck disable=SC1090
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"/builder.sh
-
-echo "here 2..."
 TOOLS_DIR="$(builder::get_tools_dir)"
 readonly TOOLS_DIR
-echo ${TOOLS_DIR}
 IMAGE_TAGGED="$("${TOOLS_DIR}"/get-builder-image-tagged --image "${IMAGE}")"
 readonly IMAGE_TAGGED
-echo "here 3..."
+
 REL_PWD="$(realpath --relative-to="${WORKSPACE}" "$(pwd)")"
 readonly REL_PWD
 WORKSPACE_MOUNT="$(builder::get_docker_workspace_mount)"
 readonly WORKSPACE_MOUNT
-echo "here 4..."
+
 declare -a DOCKER_RUN_ARGS=(
   "--rm"
   "--interactive"
@@ -76,15 +70,12 @@ if [[ -n ${EXTRA_DOCKER_RUN_ARGS} ]]; then
     $(echo "${EXTRA_DOCKER_RUN_ARGS}" | envsubst)
   )
 fi
-echo "here 5..."
-
-# if [[ -t 0 ]] && [[ -t 1 ]]; then
-#   # stdin and stdout are open, assume it's an interactive tty session
-#   DOCKER_RUN_ARGS+=("--tty")
-# fi
+if [[ -t 0 ]] && [[ -t 1 ]]; then
+  # stdin and stdout are open, assume it's an interactive tty session
+  DOCKER_RUN_ARGS+=("--tty")
+fi
 if [[ ${APP_AS_ENTRYPOINT} -eq 1 ]]; then
   # shellcheck disable=SC2068
-  echo "one" "${DOCKER_RUN_ARGS[@]}" ${APP} ${IMAGE_TAGGED} "$@"
   docker run \
     "${DOCKER_RUN_ARGS[@]}" \
     --entrypoint="${APP}" \
@@ -93,8 +84,6 @@ if [[ ${APP_AS_ENTRYPOINT} -eq 1 ]]; then
 else
   set -x
   # shellcheck disable=SC2068
-  echo "two" "${DOCKER_RUN_ARGS[@]}" ${APP} ${IMAGE_TAGGED} "$@"
-  
   docker run \
     "${DOCKER_RUN_ARGS[@]}" \
     "${IMAGE_TAGGED}" \

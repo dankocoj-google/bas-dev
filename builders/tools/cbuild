@@ -220,13 +220,13 @@ do
     "--env=${evar}"
   )
 done
-# if [[ -t 0 ]] && [[ -t 1 ]]; then
-#   # stdin and stdout are open, assume it's an interactive tty session
-#   DOCKER_RUN_ARGS+=(
-#     --interactive
-#     --tty
-#   )
-# fi
+if [[ -t 0 ]] && [[ -t 1 ]]; then
+  # stdin and stdout are open, assume it's an interactive tty session
+  DOCKER_RUN_ARGS+=(
+    --interactive
+    --tty
+  )
+fi
 
 if [[ ${VERBOSE} -eq 1 ]]; then
   set -o xtrace

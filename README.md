@@ -1,5 +1,3 @@
-# Dankocoj test branch, please ignore.
-
 # Privacy Sandbox - Bidding and Auction service
 
 The current codebase represents the implementation and setup of the Bidding and Auction servers.

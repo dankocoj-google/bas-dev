@@ -61,8 +61,6 @@ declare -a BAZEL_ARGS
 declare -a APP_ARGS
 # shellcheck disable=SC2034,SC2206
 declare -r -a ARGLIST=("$@")
-echo "here"
-sleep 5
 partition_array ARGLIST BAZEL_ARGS APP_ARGS
 
 "${CBUILD}" --seccomp-unconfined --image "${IMAGE}" --cmd "
