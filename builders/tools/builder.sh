@@ -176,7 +176,7 @@ function builder::cbuild_al() {
   shift
   local -r cbuild="$(builder::get_tools_dir)"/cbuild
   declare -a env_vars
-  builder::add_aws_env_vars env_vars
+  # builder::add_aws_env_vars env_vars
   declare env_args
   for evar in "${env_vars[@]}"; do
     env_args+=(--env "${evar}")
