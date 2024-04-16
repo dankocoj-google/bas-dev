@@ -51,8 +51,7 @@ declare -a AMI_REGIONS
 declare GCP_IMAGE_TAG
 declare GCP_IMAGE_REPO
 declare -i GCP_SKIP_IMAGE_UPLOAD=0
-declare -a BUILD_TARGETS=(
-)
+declare -a BUILD_TARGETS=()
 declare -a TEST_TARGETS+=(
   "//services/common/..."
   "//tools/secure_invoke/..."
@@ -224,6 +223,8 @@ for svc in "${SERVICES[@]}"; do
     "//production/packaging/${PLATFORM}/${svc}/..."
   )
 done
+
+sleep 3
 
 printf "==== build and test specified platform=%s, instance=%s build_flavor=%s targets using bazel-debian for: %s ====\n" "${PLATFORM}" "${INSTANCE}" "${BUILD_FLAVOR}" "${SERVICES[*]}"
 
