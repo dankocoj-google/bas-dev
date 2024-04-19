@@ -90,7 +90,7 @@ source "amazon-ebs" "dataserver" {
   assume_role {
     role_arn     = "arn:aws:iam::574738241422:role/service-role/code-build-dankocoj"
     session_name = "DANKOCOJ_TEST"
-}
+  }
 }
 
 # a build block invokes sources and runs provisioning steps on them.
