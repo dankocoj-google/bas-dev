@@ -106,12 +106,13 @@ function builder::cbuild_debian() {
 function builder::add_aws_env_vars() {
   declare -n args=$1
   args+=(
-    # "AWS_ACCESS_KEY_ID"
-    # "AWS_SECRET_ACCESS_KEY"
-    # "AWS_SESSION_TOKEN"
-    # "AWS_REGION"
-    # "AWS_DEFAULT_REGION"
-    # "AWS_PROFILE"
+    "AWS_ACCESS_KEY_ID"
+    "AWS_SECRET_ACCESS_KEY"
+    "AWS_SESSION_TOKEN"
+    "AWS_REGION"
+    "AWS_DEFAULT_REGION"
+    "AWS_PROFILE"
+    "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
    )
 }
 
