@@ -87,10 +87,6 @@ source "amazon-ebs" "dataserver" {
     commit_version = var.commit_version
   }
   ssh_username = "ec2-user"
-  assume_role {
-    role_arn     = "arn:aws:iam::574738241422:role/service-role/code-build-dankocoj"
-    session_name = "DANKOCOJ_TEST"
-  }
 }
 
 # a build block invokes sources and runs provisioning steps on them.
