@@ -15,3 +15,4 @@ timeout: 10800s
 options:
   machineType: E2_HIGHCPU_32
   automapSubstitutions: true
+  logging: CLOUD_LOGGING_ONLY
