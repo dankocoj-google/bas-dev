@@ -40,10 +40,9 @@ You must create a build trigger. Starting with a [manual](https://cloud.google.c
 1. Location: Repository
     ```plaintext
     production/packaging/gcp/cloud_build/cloudbuild.yaml
-    ```
+    ``` 
 1. Substitution Variables
    ```plaintext
-    key: _BUILD_BASE_IMAGE value: base image URI (example: us-docker.pkg.dev/bas-dev-383721/kms/base:prod)
     key: _GCP_IMAGE_REPO value: service images repo URI (example: us-docker.pkg.dev/bas-dev-383721/services)
     key: _GCP_IMAGE_TAG value: any tag (example: staging)
    ```
