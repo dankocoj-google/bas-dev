@@ -16,10 +16,10 @@ steps:
       --service-path bidding_service \
       --service-path seller_frontend_service \
       --service-path auction_service \
-      --instance gcp  --platform gcp \
+      --instance gcp --platform gcp \
       --build-flavor prod \
-      --gcp-image-tag ${_GCP_IMAGE_TAG} \
-      --gcp-image-repo ${_GCP_IMAGE_REPO} \
+      --gcp-image-tag "${_GCP_IMAGE_TAG}" \
+      --gcp-image-repo "${_GCP_IMAGE_REPO}" \
       --no-tests --no-precommit
 timeout: 10800s
 options:
