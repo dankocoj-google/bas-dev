@@ -1,5 +1,5 @@
 steps:
-  - name: 'gcr.io/cloud-builders/docker'
+  - name: gcr.io/cloud-builders/docker
     args:
     - build
     - -t
@@ -7,7 +7,7 @@ steps:
     - -f
     - production/packaging/gcp/cloud_build/Dockerfile
     - .
-  - name: 'service-builder'
+  - name: service-builder
     env:
       - WORKSPACE_MOUNT=/workspace
     script: |
