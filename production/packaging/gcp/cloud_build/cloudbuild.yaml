@@ -22,6 +22,9 @@ steps:
       --gcp-image-tag ${_GCP_IMAGE_TAG} \
       --gcp-image-repo ${_GCP_IMAGE_REPO} \
       --no-tests --no-precommit
+substitutions:
+    _GCP_IMAGE_TAG: from-cloudbuild # Default. The build script also tags the images with verison information.
+    _GCP_IMAGE_REPO: us-docker.pkg.dev/$PROJECT_ID/services # Default. Artifact Registry repo to house images for each service.
 timeout: 10800s
 options:
   machineType: E2_HIGHCPU_32
