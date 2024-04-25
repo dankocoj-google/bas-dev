@@ -24,7 +24,7 @@ First, follow the steps to [connect a Github repository](https://cloud.google.co
 
 #### Configuring an Image Repo
 
-Please create an [Artifact Registry](https://cloud.google.com/artifact-registry) repo to hold all of the Bidding and Auction service images that will be created. Four directories will be created in the repo (`auction_serivce`, `bidding_service`, `seller_frontend_service`, and `buyer_frontend_service`).
+Please create an [Artifact Registry](https://cloud.google.com/artifact-registry) repo to hold all of the Bidding and Auction service images that will be created. Four directories will be created in the repo (`auction_serivce`, `bidding_service`, `seller_frontend_service`, and `buyer_frontend_service`). We suggest a default repo name of `us-docker.pkg.dev/${PROJECT_ID}/services`.
 
 #### Service Account Permissions
 
@@ -41,12 +41,14 @@ You must create a build trigger. Starting with a [manual](https://cloud.google.c
     ```plaintext
     production/packaging/gcp/cloud_build/cloudbuild.yaml
     ``` 
-1. Substitution Variables
+2. Substitution Variables
+   
+    Note: these will override variables in the cloudbuild.yaml.
    ```plaintext
-    key: _GCP_IMAGE_REPO value: service images repo URI (example: us-docker.pkg.dev/bas-dev-383721/services)
-    key: _GCP_IMAGE_TAG value: any tag (example: staging)
+    key: _GCP_IMAGE_REPO value: service images repo URI from prerequisites (default: us-docker.pkg.dev/${PROJECT_ID}/services)
+    key: _GCP_IMAGE_TAG value: any tag (default: from-cloudbuild)
    ```
-2. Service account: Select the account configured [previously](#service-account-permissions).
+3. Service account: Select the account configured [previously](#service-account-permissions).
 
 After configuring your Trigger, click Save. You may manually run it from the Triggers page. 
    
