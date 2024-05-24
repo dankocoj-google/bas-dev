@@ -35,6 +35,7 @@
 #include "services/common/encryption/crypto_client_factory.h"
 #include "services/common/encryption/key_fetcher_factory.h"
 #include "services/common/telemetry/configure_telemetry.h"
+#include "services/common/util/tcmalloc_utils.h"
 #include "services/seller_frontend_service/runtime_flags.h"
 #include "services/seller_frontend_service/seller_frontend_service.h"
 #include "services/seller_frontend_service/util/key_fetcher_utils.h"
@@ -88,6 +89,17 @@ ABSL_FLAG(std::optional<bool>, buyer_egress_tls, std::nullopt,
 ABSL_FLAG(std::optional<std::string>, sfe_public_keys_endpoints, std::nullopt,
           "Endpoints serving set of public keys used for encryption across the "
           "supported cloud platforms");
+ABSL_FLAG(std::optional<std::string>, seller_cloud_platforms_map, std::nullopt,
+          "Seller partner cloud platforms. Can be empty."
+          "Enables requests to the getComponentAuctionCiphertexts RPC.");
+ABSL_FLAG(std::optional<int64_t>,
+          sfe_tcmalloc_background_release_rate_bytes_per_second, std::nullopt,
+          "Amount of cached memory in bytes that is returned back to the "
+          "system per second");
+ABSL_FLAG(std::optional<int64_t>, sfe_tcmalloc_max_total_thread_cache_bytes,
+          std::nullopt,
+          "Maximum amount of cached memory in bytes across all threads (or "
+          "logical CPUs)");
 
 namespace privacy_sandbox::bidding_auction_servers {
 
@@ -158,7 +170,13 @@ absl::StatusOr<TrustedServersConfigClient> GetConfigClient(
   config_client.SetFlag(FLAGS_enable_protected_audience,
                         ENABLE_PROTECTED_AUDIENCE);
   config_client.SetFlag(FLAGS_ps_verbosity, PS_VERBOSITY);
-
+  config_client.SetFlag(FLAGS_seller_cloud_platforms_map,
+                        SELLER_CLOUD_PLATFORMS_MAP);
+  config_client.SetFlag(
+      FLAGS_sfe_tcmalloc_background_release_rate_bytes_per_second,
+      SFE_TCMALLOC_BACKGROUND_RELEASE_RATE_BYTES_PER_SECOND);
+  config_client.SetFlag(FLAGS_sfe_tcmalloc_max_total_thread_cache_bytes,
+                        SFE_TCMALLOC_MAX_TOTAL_THREAD_CACHE_BYTES);
   if (absl::GetFlag(FLAGS_init_config_client)) {
     PS_RETURN_IF_ERROR(config_client.Init(config_param_prefix)).LogError()
         << "Config client failed to initialize.";
@@ -175,11 +193,11 @@ absl::StatusOr<TrustedServersConfigClient> GetConfigClient(
     ABSL_LOG(WARNING) << "Neither protected audience nor protected app signals "
                          "is enabled";
   }
-  PS_VLOG(1) << "Protected Audience support enabled on the service: "
-             << enable_protected_audience;
-  PS_VLOG(1) << "Protected App Signals support enabled on the service: "
-             << enable_protected_app_signals;
-  PS_VLOG(1) << "Successfully constructed the config client.";
+  PS_LOG(INFO) << "Protected Audience support enabled on the service: "
+               << enable_protected_audience;
+  PS_LOG(INFO) << "Protected App Signals support enabled on the service: "
+               << enable_protected_app_signals;
+  PS_LOG(INFO) << "Successfully constructed the config client.";
   return config_client;
 }
 
@@ -188,6 +206,11 @@ absl::Status RunServer() {
   TrustedServerConfigUtil config_util(absl::GetFlag(FLAGS_init_config_client));
   PS_ASSIGN_OR_RETURN(TrustedServersConfigClient config_client,
                       GetConfigClient(config_util.GetConfigParameterPrefix()));
+
+  MaySetBackgroundReleaseRate(config_client.GetInt64Parameter(
+      SFE_TCMALLOC_BACKGROUND_RELEASE_RATE_BYTES_PER_SECOND));
+  MaySetMaxTotalThreadCacheBytes(config_client.GetInt64Parameter(
+      SFE_TCMALLOC_MAX_TOTAL_THREAD_CACHE_BYTES));
 
   InitTelemetry<SelectAdRequest>(
       config_util, config_client, metric::kSfe,
@@ -252,7 +275,7 @@ absl::Status RunServer() {
     return absl::UnavailableError("Error starting Server.");
   }
 
-  PS_VLOG(1) << "Server listening on " << server_address;
+  PS_LOG(INFO) << "Server listening on " << server_address;
   // Wait for the server to shutdown. Note that some other thread must be
   // responsible for shutting down the server for this call to ever return.
   server->Wait();

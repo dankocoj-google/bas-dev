@@ -47,6 +47,7 @@ cc_library(
         "seller_frontend_service.h",
     ],
     deps = [
+        ":get_component_auction_ciphertexts_reactor",
         ":runtime_flags",
         "//api:bidding_auction_servers_cc_grpc_proto",
         "//api:bidding_auction_servers_cc_proto",
@@ -102,12 +103,14 @@ cc_binary(
         "-Wl,-rpath,\\$$ORIGIN/../lib",
     ],
     local_defines = ENABLE_CORE_DUMPS_DEFINES,
+    malloc = "@com_google_tcmalloc//tcmalloc",
     deps = [
         ":seller_frontend_service",
         "//services/common/clients/config:config_client_util",
         "//services/common/encryption:crypto_client_factory",
         "//services/common/encryption:key_fetcher_factory",
         "//services/common/telemetry:configure_telemetry",
+        "//services/common/util:tcmalloc_utils",
         "//services/seller_frontend_service/util:key_fetcher_utils",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_grpc_grpc//:grpc++_reflection",  # for grpc_cli
@@ -201,6 +204,7 @@ cc_test(
         "@com_google_absl//absl/log:scoped_mock_log",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
+        "@google_privacysandbox_servers_common//src/encryption/key_fetcher:fake_key_fetcher_manager",
         "@google_privacysandbox_servers_common//src/encryption/key_fetcher/mock:mock_key_fetcher_manager",
     ],
 )
@@ -224,5 +228,40 @@ cc_test(
         "@google_privacysandbox_servers_common//src/communication:encoding_utils",
         "@google_privacysandbox_servers_common//src/communication:ohttp_utils",
         "@google_privacysandbox_servers_common//src/encryption/key_fetcher/mock:mock_key_fetcher_manager",
+    ],
+)
+
+cc_library(
+    name = "get_component_auction_ciphertexts_reactor",
+    srcs = ["get_component_auction_ciphertexts_reactor.cc"],
+    hdrs = ["get_component_auction_ciphertexts_reactor.h"],
+    deps = [
+        "//api:bidding_auction_servers_cc_grpc_proto",
+        "//services/common/clients/config:config_client",
+        "//services/common/util:request_response_constants",
+        "//services/seller_frontend_service/util:encryption_util",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/strings",
+        "@google_privacysandbox_servers_common//src/encryption/key_fetcher/interface:key_fetcher_manager_interface",
+        "@google_privacysandbox_servers_common//src/util/status_macro:status_util",
+    ],
+)
+
+cc_test(
+    name = "get_component_auction_ciphertexts_reactor_test",
+    srcs = ["get_component_auction_ciphertexts_reactor_test.cc"],
+    deps = [
+        ":get_component_auction_ciphertexts_reactor",
+        "//services/common/clients/config:config_client",
+        "//services/common/constants:common_service_flags",
+        "//services/common/encryption:key_fetcher_factory",
+        "//services/common/test:mocks",
+        "//services/seller_frontend_service/util:encryption_util",
+        "//services/seller_frontend_service/util:select_ad_reactor_test_utils",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+        "@google_privacysandbox_servers_common//src/core/test/utils",
+        "@google_privacysandbox_servers_common//src/encryption/key_fetcher:fake_key_fetcher_manager",
     ],
 )

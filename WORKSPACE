@@ -11,13 +11,23 @@ http_archive(
 
 python_deps("//builders/bazel")
 
+# TODO: Remove bazel_clang_tidy once we sync to the common repo commit 9edb0c3 (4/3/2024) or later
+http_archive(
+    name = "bazel_clang_tidy",
+    sha256 = "352aeb57ad7ed53ff6e02344885de426421fb6fd7a3890b04d14768d759eb598",
+    strip_prefix = "bazel_clang_tidy-4884c32e09c1ea9ac96b3f08c3004f3ac4c3fe39",
+    urls = [
+        "https://github.com/erenon/bazel_clang_tidy/archive/4884c32e09c1ea9ac96b3f08c3004f3ac4c3fe39.zip",
+    ],
+)
+
 http_archive(
     name = "google_privacysandbox_servers_common",
-    # 2024-04-01
-    sha256 = "e36cc26c917ec4b1066a32777b48ac8728ba13c276cdda2e91c36ad2037d9bcd",
-    strip_prefix = "data-plane-shared-libraries-1fbac466b6b88e00a4ca037f7359ee1942ade13e",
+    # 2024-05-06
+    sha256 = "1b0d52c6218fa4db7f4760a7e197c2e656a1408549fee40cdea2cb7496a3f836",
+    strip_prefix = "data-plane-shared-libraries-10be592dd582044a79172d4c0530ce8b7ac39ae4",
     urls = [
-        "https://github.com/privacysandbox/data-plane-shared-libraries/archive/1fbac466b6b88e00a4ca037f7359ee1942ade13e.zip",
+        "https://github.com/privacysandbox/data-plane-shared-libraries/archive/10be592dd582044a79172d4c0530ce8b7ac39ae4.zip",
     ],
 )
 
@@ -75,11 +85,11 @@ http_archive(
 
 http_archive(
     name = "service_value_key_fledge_privacysandbox",
-    # commit af184d649be5d9f0a62738db41ed1496de427bcd 2024-03-15
-    sha256 = "",
-    strip_prefix = "protected-auction-key-value-service-af184d649be5d9f0a62738db41ed1496de427bcd",
+    # commit 89f678982d5cc1bcfde354980ed9380239f54b96 2024-03-22
+    sha256 = "dfa9da5e5b2b71aa706781e1edc0c6f4e752d4ebf30f82624f711e776553fbe2",
+    strip_prefix = "protected-auction-key-value-service-89f678982d5cc1bcfde354980ed9380239f54b96",
     urls = [
-        "https://github.com/privacysandbox/protected-auction-key-value-service/archive/af184d649be5d9f0a62738db41ed1496de427bcd.zip",
+        "https://github.com/privacysandbox/protected-auction-key-value-service/archive/89f678982d5cc1bcfde354980ed9380239f54b96.zip",
     ],
 )
 
@@ -117,15 +127,14 @@ local_repository(
     path = "services/inference_sidecar/modules/tensorflow_v2_14_0",
 )
 
-# TODO: Remove this once we sync to the common repo version that includes this
-# as a dependecy.
 http_archive(
-    name = "bazel_clang_tidy",
+    name = "libevent",
+    build_file = "//third_party:libevent.BUILD",
     patch_args = ["-p1"],
-    patches = ["//third_party:bazel_clang_tidy.patch"],
-    sha256 = "352aeb57ad7ed53ff6e02344885de426421fb6fd7a3890b04d14768d759eb598",
-    strip_prefix = "bazel_clang_tidy-4884c32e09c1ea9ac96b3f08c3004f3ac4c3fe39",
-    urls = [
-        "https://github.com/erenon/bazel_clang_tidy/archive/4884c32e09c1ea9ac96b3f08c3004f3ac4c3fe39.zip",
+    patches = [
+        "//third_party:libevent.patch",
     ],
+    sha256 = "8836ad722ab211de41cb82fe098911986604f6286f67d10dfb2b6787bf418f49",
+    strip_prefix = "libevent-release-2.1.12-stable",
+    urls = ["https://github.com/libevent/libevent/archive/refs/tags/release-2.1.12-stable.zip"],
 )

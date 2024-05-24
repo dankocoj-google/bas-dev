@@ -33,6 +33,32 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "proto_util",
+    hdrs = [
+        "proto_util.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_protobuf//:protobuf",
+        "@google_privacysandbox_servers_common//src/util/status_macro:status_macros",
+    ],
+)
+
+cc_test(
+    name = "proto_util_test",
+    size = "small",
+    srcs = [
+        "proto_util_test.cc",
+    ],
+    deps = [
+        ":proto_util",
+        "@com_google_absl//absl/log:check",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 cc_test(
     name = "json_util_test",
     size = "small",
@@ -175,6 +201,7 @@ cc_library(
         "//api:bidding_auction_servers_cc_proto",
         "//services/common/clients/http:http_fetcher_async",
         "//services/common/util:json_util",
+        "//services/common/util:request_response_constants",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/status",
@@ -278,6 +305,7 @@ cc_library(
         "binary_http_utils.h",
     ],
     deps = [
+        "//services/common/util:request_response_constants",
         "@com_github_google_quiche//quiche:binary_http_unstable_api",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
@@ -417,4 +445,15 @@ cc_library(
     hdrs = ["build_info.h"],
     visibility = ["//services:__subpackages__"],
     deps = ["@com_google_absl//absl/strings"],
+)
+
+cc_library(
+    name = "tcmalloc_utils",
+    hdrs = [
+        "tcmalloc_utils.h",
+    ],
+    deps = [
+        "@com_google_tcmalloc//tcmalloc:malloc_extension",
+        "@google_privacysandbox_servers_common//src/logger:request_context_impl",
+    ],
 )

@@ -106,7 +106,7 @@ absl::StatusOr<std::string> SelectAdReactorForWeb::GetNonEncryptedResponse(
     encoded_data = auction_result.SerializeAsString();
 
     PS_VLOG(kPlain, log_context_) << "AuctionResult:\n"
-                                  << auction_result.DebugString();
+                                  << auction_result.ShortDebugString();
   } else {
     // SINGLE_SELLER or SERVER_TOP_LEVEL Auction
     PS_ASSIGN_OR_RETURN(
@@ -122,8 +122,9 @@ absl::StatusOr<std::string> SelectAdReactorForWeb::GetNonEncryptedResponse(
 
   absl::StatusOr<std::string> compressed_data = GzipCompress(data_to_compress);
   if (!compressed_data.ok()) {
-    ABSL_LOG(ERROR) << "Failed to compress the CBOR serialized data: "
-                    << compressed_data.status().message();
+    PS_LOG(ERROR, log_context_)
+        << "Failed to compress the CBOR serialized data: "
+        << compressed_data.status().message();
     FinishWithStatus(
         grpc::Status(grpc::INTERNAL, "Failed to compress CBOR data"));
     return absl::InternalError("");

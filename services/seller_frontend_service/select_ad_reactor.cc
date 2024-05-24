@@ -43,6 +43,8 @@
 namespace privacy_sandbox::bidding_auction_servers {
 namespace {
 
+constexpr int kMillisInMinute = 60000;
+constexpr int kSecsInMinute = 60;
 using ScoreAdsRawRequest = ScoreAdsRequest::ScoreAdsRawRequest;
 using AdScore = ScoreAdsResponse::AdScore;
 using AdWithBidMetadata =
@@ -97,6 +99,7 @@ SelectAdReactor::SelectAdReactor(
 AdWithBidMetadata SelectAdReactor::BuildAdWithBidMetadata(
     const AdWithBid& input, absl::string_view interest_group_owner) {
   AdWithBidMetadata result;
+  // First copy all the fields that can be copied directly.
   if (input.has_ad()) {
     *result.mutable_ad() = input.ad();
   }
@@ -105,23 +108,40 @@ AdWithBidMetadata SelectAdReactor::BuildAdWithBidMetadata(
   result.set_allow_component_auction(input.allow_component_auction());
   result.mutable_ad_components()->CopyFrom(input.ad_components());
   result.set_interest_group_name(input.interest_group_name());
-  result.set_interest_group_owner(interest_group_owner);
   result.set_ad_cost(input.ad_cost());
   result.set_modeling_signals(input.modeling_signals());
   result.set_bid_currency(input.bid_currency());
+
+  // Then set fields passed in externally.
+  result.set_interest_group_owner(interest_group_owner);
+
+  // Finally, find the AdWithBid's IG and copy the last fields from there.
   const BuyerInput& buyer_input =
       buyer_inputs_->find(interest_group_owner)->second;
   for (const auto& interest_group : buyer_input.interest_groups()) {
     if (interest_group.name() == result.interest_group_name()) {
+      result.set_interest_group_origin(interest_group.origin());
       if (request_->client_type() == CLIENT_TYPE_BROWSER) {
         result.set_join_count(interest_group.browser_signals().join_count());
-        PS_VLOG(1, log_context_) << "BrowserSignal: Recency:"
-                                 << interest_group.browser_signals().recency();
-
-        result.set_recency(interest_group.browser_signals().recency());
+        PS_VLOG(kNoisyInfo, log_context_)
+            << "BrowserSignal: Recency:"
+            << interest_group.browser_signals().recency();
+        if (interest_group.browser_signals().has_recency_ms()) {
+          // ScoreAdsRequest requires recency to be in minutes.
+          result.set_recency(static_cast<int>(
+              interest_group.browser_signals().recency_ms() / kMillisInMinute));
+        } else {
+          // ScoreAdsRequest requires recency to be in minutes.
+          result.set_recency(static_cast<int>(
+              interest_group.browser_signals().recency() / kSecsInMinute));
+        }
       }
+      // May as well skip further iterations.
       break;
     }
+  }
+  if (!input.buyer_reporting_id().empty()) {
+    result.set_buyer_reporting_id(input.buyer_reporting_id());
   }
   return result;
 }
@@ -168,9 +188,10 @@ grpc::Status SelectAdReactor::DecryptRequest() {
   auto decrypted_hpke_req = DecryptOHTTPEncapsulatedHpkeCiphertext(
       encapsulated_req, clients_.key_fetcher_manager_);
   if (!decrypted_hpke_req.ok()) {
-    PS_VLOG(2) << "Error decrypting the protected "
-               << (is_protected_auction_request_ ? "auction" : "audience")
-               << " input ciphertext" << decrypted_hpke_req.status();
+    PS_VLOG(kNoisyWarn) << "Error decrypting the protected "
+                        << (is_protected_auction_request_ ? "auction"
+                                                          : "audience")
+                        << " input ciphertext" << decrypted_hpke_req.status();
     return {grpc::StatusCode::INVALID_ARGUMENT,
             absl::StrFormat(kErrorDecryptingCiphertextError,
                             decrypted_hpke_req.status().message())};
@@ -189,9 +210,11 @@ grpc::Status SelectAdReactor::DecryptRequest() {
         GetDecodedProtectedAudienceInput(decrypted_request_->plaintext);
   }
   std::visit(
-      [this](const auto& protected_auction_input) {
-        buyer_inputs_ =
-            GetDecodedBuyerinputs(protected_auction_input.buyer_input());
+      [this](auto& input) {
+        buyer_inputs_ = GetDecodedBuyerinputs(input.buyer_input());
+        for (auto& each_buyer_input : *input.mutable_buyer_input()) {
+          each_buyer_input.second = "encoded buyer input erased";
+        }
       },
       protected_auction_input_);
   return grpc::Status::OK;
@@ -268,7 +291,7 @@ void SelectAdReactor::MayPopulateAdServerVisibleErrors() {
 
 void SelectAdReactor::MayLogBuyerInput() {
   if (!buyer_inputs_.ok()) {
-    PS_VLOG(1, log_context_) << "Failed to decode buyer inputs";
+    PS_LOG(ERROR, log_context_) << "Failed to decode buyer inputs";
   } else {
     PS_VLOG(6, log_context_)
         << "Decoded BuyerInput:\n"
@@ -323,15 +346,15 @@ void SelectAdReactor::Execute() {
 
   PS_VLOG(kEncrypted, log_context_) << "Encrypted SelectAdRequest:\n"
                                     << request_->ShortDebugString();
-  PS_VLOG(2, log_context_) << "Headers:\n"
-                           << absl::StrJoin(context_->client_metadata(), "\n",
-                                            absl::PairFormatter(
-                                                absl::StreamFormatter(), " : ",
-                                                absl::StreamFormatter()));
+  PS_VLOG(kPlain, log_context_)
+      << "Headers:\n"
+      << absl::StrJoin(context_->client_metadata(), "\n",
+                       absl::PairFormatter(absl::StreamFormatter(), " : ",
+                                           absl::StreamFormatter()));
   if (!decrypt_status.ok()) {
     FinishWithStatus(decrypt_status);
-    PS_VLOG(1, log_context_) << "SelectAdRequest decryption failed:"
-                             << server_common::ToAbslStatus(decrypt_status);
+    PS_LOG(ERROR, log_context_) << "SelectAdRequest decryption failed:"
+                                << server_common::ToAbslStatus(decrypt_status);
     return;
   }
   std::visit(
@@ -349,7 +372,7 @@ void SelectAdReactor::Execute() {
     LogIfError(
         metric_context_->AccumulateMetric<metric::kSfeErrorCountByErrorCode>(
             1, metric::kSfeSelectAdRequestBadInput));
-    PS_VLOG(1, log_context_) << "AdServerVisible errors found, failing now";
+    PS_LOG(ERROR, log_context_) << "AdServerVisible errors found, failing now";
 
     // Finish the GRPC request if we have received bad data from the ad tech
     // server.
@@ -375,13 +398,13 @@ void SelectAdReactor::Execute() {
   MayPopulateClientVisibleErrors();
 
   if (error_accumulator_.HasErrors()) {
-    PS_VLOG(1, log_context_) << "Some errors found, failing now";
+    PS_LOG(ERROR, log_context_) << "Some errors found, failing now";
 
     // Finish the GRPC request now.
     OnScoreAdsDone(std::make_unique<ScoreAdsResponse::ScoreAdsRawResponse>());
     return;
   }
-  PS_VLOG(1, log_context_) << "No client / Adtech server errors found";
+  PS_VLOG(3, log_context_) << "No client / Adtech server errors found";
 
   benchmarking_logger_->Begin();
 
@@ -395,7 +418,7 @@ void SelectAdReactor::Execute() {
 
   for (const auto& buyer_ig_owner : request_->auction_config().buyer_list()) {
     if (buyer_set.erase(buyer_ig_owner) == 0) {
-      PS_VLOG(2, log_context_)
+      PS_VLOG(kNoisyWarn, log_context_)
           << "Duplicate buyer found " << buyer_ig_owner << ", skipping buyer";
       async_task_tracker_.TaskCompleted(TaskStatus::SKIPPED);
       continue;
@@ -404,14 +427,15 @@ void SelectAdReactor::Execute() {
     if (num_buyers_solicited >= max_buyers_solicited_) {
       // Skipped buyers should not be left pending.
       async_task_tracker_.TaskCompleted(TaskStatus::SKIPPED);
-      PS_VLOG(2, log_context_) << "Exceeded cap of " << max_buyers_solicited_
-                               << " buyers called. Skipping buyer";
+      PS_VLOG(kNoisyWarn, log_context_)
+          << "Exceeded cap of " << max_buyers_solicited_
+          << " buyers called. Skipping buyer";
       continue;
     }
 
     const auto& buyer_input_iterator = buyer_inputs_->find(buyer_ig_owner);
     if (buyer_input_iterator == buyer_inputs_->end()) {
-      PS_VLOG(2, log_context_)
+      PS_VLOG(kNoisyWarn, log_context_)
           << "No buyer input found for buyer: " << buyer_ig_owner
           << ", skipping buyer";
 
@@ -470,6 +494,8 @@ SelectAdReactor::CreateGetBidsRequest(const std::string& buyer_ig_owner,
           *get_bids_request->mutable_consented_debug_config() =
               protected_auction_input.consented_debug_config();
         }
+        get_bids_request->set_enable_unlimited_egress(
+            protected_auction_input.enable_unlimited_egress());
       },
       protected_auction_input_);
 
@@ -486,7 +512,7 @@ void SelectAdReactor::FetchBid(const std::string& buyer_ig_owner,
                                const BuyerInput& buyer_input) {
   auto buyer_client = clients_.buyer_factory.Get(buyer_ig_owner);
   if (buyer_client == nullptr) {
-    PS_VLOG(2, log_context_)
+    PS_VLOG(kNoisyWarn, log_context_)
         << "No buyer client found for buyer: " << buyer_ig_owner;
 
     async_task_tracker_.TaskCompleted(TaskStatus::SKIPPED);
@@ -568,8 +594,8 @@ void SelectAdReactor::OnFetchBidsDone(
   PS_VLOG(5, log_context_) << "Received response from a BFE ... ";
   if (response.ok()) {
     auto& found_response = *response;
-    PS_VLOG(2, log_context_) << "\nGetBidsResponse:\n"
-                             << found_response->DebugString();
+    PS_VLOG(kOriginated, log_context_) << "\nGetBidsResponse:\n"
+                                       << found_response->DebugString();
     if (found_response->has_debug_info()) {
       server_common::DebugInfo& bfe_log =
           *response_->mutable_debug_info()->add_downstream_servers();
@@ -579,8 +605,8 @@ void SelectAdReactor::OnFetchBidsDone(
     if ((!is_protected_audience_enabled_ || found_response->bids().empty()) &&
         (!is_pas_enabled_ ||
          found_response->protected_app_signals_bids().empty())) {
-      PS_VLOG(2, log_context_) << "Skipping buyer " << buyer_ig_owner
-                               << " due to empty GetBidsResponse.";
+      PS_VLOG(kNoisyWarn, log_context_) << "Skipping buyer " << buyer_ig_owner
+                                        << " due to empty GetBidsResponse.";
 
       async_task_tracker_.TaskCompleted(TaskStatus::EMPTY_RESPONSE);
     } else {
@@ -597,7 +623,7 @@ void SelectAdReactor::OnFetchBidsDone(
             1, metric::kSfeGetBidsResponseError));
     LogInitiatedRequestErrorMetrics(metric::kBfe, response.status(),
                                     buyer_ig_owner);
-    PS_VLOG(1, log_context_)
+    PS_LOG(ERROR, log_context_)
         << "GetBidsRequest failed for buyer " << buyer_ig_owner
         << "\nresponse status: " << response.status();
 
@@ -614,7 +640,7 @@ void SelectAdReactor::OnAllBidsDone(bool any_successful_bids) {
 
   // No successful bids received.
   if (shared_buyer_bids_map_.empty()) {
-    PS_VLOG(2, log_context_) << kNoBidsReceived;
+    PS_VLOG(kNoisyWarn, log_context_) << kNoBidsReceived;
 
     if (!any_successful_bids) {
       LogIfError(
@@ -637,7 +663,7 @@ void SelectAdReactor::OnAllBidsDone(bool any_successful_bids) {
   // That each buyer has bids was checked in OnFetchBidsDone().
   // Thus the preconditions of the following method are satisfied.
   if (!FilterBidsWithMismatchingCurrency()) {
-    PS_VLOG(2, log_context_) << kAllBidsRejectedBuyerCurrencyMismatch;
+    PS_VLOG(kNoisyWarn, log_context_) << kAllBidsRejectedBuyerCurrencyMismatch;
     FinishWithStatus(grpc::Status(grpc::INVALID_ARGUMENT,
                                   kAllBidsRejectedBuyerCurrencyMismatch));
   } else {
@@ -646,7 +672,7 @@ void SelectAdReactor::OnAllBidsDone(bool any_successful_bids) {
 }
 
 template <typename T>
-void FilterBidsWithMismatchingCurrencyHelper(
+void SelectAdReactor::FilterBidsWithMismatchingCurrencyHelper(
     google::protobuf::RepeatedPtrField<T>* ads_with_bids,
     absl::string_view buyer_currency) {
   int i = 0;
@@ -657,7 +683,11 @@ void FilterBidsWithMismatchingCurrencyHelper(
         buyer_currency != ad_with_bid.bid_currency()) {
       // Swap to last. Mark for removal and make sure we don't check it again
       ads_with_bids->SwapElements(i, --remove_starting_at);
-      // TODO: Record metric.
+      LogIfError(
+          metric_context_->AccumulateMetric<metric::kAuctionBidRejectedCount>(
+              1, ToSellerRejectionReasonString(
+                     SellerRejectionReason::
+                         BID_FROM_GENERATE_BID_FAILED_CURRENCY_CHECK)));
       // Leave index un-incremented so swapped element is checked.
     } else {
       i++;
@@ -783,7 +813,7 @@ void SelectAdReactor::OnFetchScoringSignalsDone(
         metric_context_->AccumulateMetric<metric::kSfeErrorCountByErrorCode>(
             1, metric::kSfeScoringSignalsResponseError));
     LogInitiatedRequestErrorMetrics(metric::kKv, result.status());
-    PS_VLOG(1, log_context_)
+    PS_LOG(ERROR, log_context_)
         << "Scoring signals fetch from key-value server failed: "
         << result.status();
 
@@ -795,8 +825,9 @@ void SelectAdReactor::OnFetchScoringSignalsDone(
   scoring_signals_ = std::move(result).value();
   // If signals are empty, return chaff.
   if (scoring_signals_->scoring_signals->empty()) {
-    PS_VLOG(2, log_context_) << "Scoring signals fetch from key-value server "
-                                "succeeded but were empty.";
+    PS_VLOG(kNoisyWarn, log_context_)
+        << "Scoring signals fetch from key-value server "
+           "succeeded but were empty.";
 
     OnScoreAdsDone(std::make_unique<ScoreAdsResponse::ScoreAdsRawResponse>());
     return;
@@ -862,21 +893,14 @@ void SelectAdReactor::ScoreAds() {
   auto raw_request = CreateScoreAdsRequest();
   if (raw_request->ad_bids().empty() &&
       raw_request->protected_app_signals_ad_bids().empty()) {
-    PS_VLOG(2, log_context_) << "No Protected Audience or Protected App "
-                                "Signals ads to score, sending chaff response";
+    PS_VLOG(kNoisyWarn, log_context_)
+        << "No Protected Audience or Protected App "
+           "Signals ads to score, sending chaff response";
     OnScoreAdsDone(std::make_unique<ScoreAdsResponse::ScoreAdsRawResponse>());
     return;
   }
-
-  PS_VLOG(2, log_context_) << "\nScoreAdsRawRequest:\n"
-                           << raw_request->DebugString();
-  if (raw_request->ad_bids().empty() &&
-      raw_request->protected_app_signals_ad_bids().empty()) {
-    PS_VLOG(2, log_context_) << "No Protected Audience or Protected App "
-                                "Signals ads to score, sending chaff response";
-    OnScoreAdsDone(std::make_unique<ScoreAdsResponse::ScoreAdsRawResponse>());
-    return;
-  }
+  PS_VLOG(kOriginated, log_context_) << "\nScoreAdsRawRequest:\n"
+                                     << raw_request->DebugString();
 
   auto auction_request =
       metric::MakeInitiatedRequest(metric::kAs, metric_context_.get());
@@ -936,7 +960,8 @@ void SelectAdReactor::OnScoreAdsDone(
     return;
   }
 
-  PS_VLOG(2, log_context_) << "ScoreAdsResponse status:" << response.status();
+  PS_VLOG(kOriginated, log_context_)
+      << "ScoreAdsResponse status:" << response.status();
   auto scoring_return_code =
       static_cast<grpc::StatusCode>(response.status().code());
   if (!response.ok()) {
@@ -1011,8 +1036,8 @@ bool SelectAdReactor::EncryptResponse(std::string plaintext_response) {
                     ProtoCloudPlatformToScpCloudPlatform(
                         request_->auction_config().top_level_cloud_platform()));
     if (!encrypted_request.ok()) {
-      PS_VLOG(1, log_context_) << "Error while encrypting response: "
-                               << encrypted_request.status().message();
+      PS_LOG(ERROR, log_context_) << "Error while encrypting response: "
+                                  << encrypted_request.status().message();
       FinishWithStatus(
           grpc::Status(grpc::StatusCode::INTERNAL, kInternalServerError));
       return false;
@@ -1064,8 +1089,8 @@ void SelectAdReactor::PerformDebugReporting(
     return;
   }
 
-  PostAuctionSignals post_auction_signals =
-      GeneratePostAuctionSignals(high_score);
+  PostAuctionSignals post_auction_signals = GeneratePostAuctionSignals(
+      high_score, request_->auction_config().seller_currency());
   for (const auto& [ig_owner, get_bid_response] : shared_buyer_bids_map_) {
     for (int i = 0; i < get_bid_response->bids_size(); i++) {
       const AdWithBid& ad_with_bid = get_bid_response->bids().at(i);

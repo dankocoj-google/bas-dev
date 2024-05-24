@@ -73,6 +73,8 @@ inline constexpr char kBrowserSignalsBidCount[] = "browserSignals[x].bidCount";
 inline constexpr char kBrowserSignalsJoinCount[] =
     "browserSignals[x].joinCount";
 inline constexpr char kBrowserSignalsRecency[] = "browserSignals[x].recency";
+inline constexpr char kBrowserSignalsRecencyMs[] =
+    "browserSignals[x].recencyMs";
 inline constexpr char kBrowserSignalsPrevWins[] = "browserSignals[x].prevWins";
 inline constexpr char kPrevWinsEntry[] = "browserSignals[x].prevWins[y]";
 inline constexpr char kPrevWinsTimeEntry[] = "browserSignals[x].prevWins[y][0]";
@@ -355,7 +357,8 @@ inline constexpr std::array<std::string_view, kNumAuctionResultKeys>
         kWinReportingUrls,    // 9
         kAdMetadata,          // 10
         kTopLevelSeller,      // 11
-        kBidCurrency          // 12
+        kBidCurrency,         // 12
+        kBuyerReportingId     // 13
 };
 
 template <std::size_t Size>

@@ -20,6 +20,7 @@
 #include "rapidjson/writer.h"
 #include "services/common/util/json_util.h"
 #include "services/common/util/reporting_util.h"
+#include "services/common/util/request_response_constants.h"
 
 namespace privacy_sandbox::bidding_auction_servers {
 
@@ -177,22 +178,58 @@ std::string MakeOpenBidMetadataJson(
     }
     absl::StrAppend(&bid_metadata, R"(],)");
   }
-  // Only add bid currency to bid metadata if it's non-empty.
   if (!bid_currency.empty()) {
     absl::StrAppend(&bid_metadata, R"JSON(")JSON",
                     kBidCurrencyPropertyForScoreAd, R"JSON(":")JSON",
                     bid_currency, R"JSON(",)JSON");
+  } else {
+    absl::StrAppend(&bid_metadata, R"JSON(")JSON",
+                    kBidCurrencyPropertyForScoreAd, R"JSON(":")JSON",
+                    kEmptyBidCurrencyCode, R"JSON(",)JSON");
   }
   return bid_metadata;
+}
+
+// Gets the debug reporting URL (either win or loss URL) if the URL will not
+// exceed the caps set within here.
+inline absl::string_view GetDebugUrlIfInLimit(
+    const std::string& url_type, const rapidjson::Value& debug_reporting_urls,
+    int max_allowed_size_debug_url_chars,
+    int max_allowed_size_all_debug_urls_chars,
+    int current_all_debug_urls_chars) {
+  auto debug_url_it = debug_reporting_urls.FindMember(url_type.c_str());
+  if (debug_url_it == debug_reporting_urls.MemberEnd() ||
+      !debug_url_it->value.IsString()) {
+    return "";
+  }
+
+  absl::string_view debug_url = debug_url_it->value.GetString();
+  int url_length = debug_url.length();
+  if (url_length <= max_allowed_size_debug_url_chars &&
+      url_length + current_all_debug_urls_chars <=
+          max_allowed_size_all_debug_urls_chars) {
+    PS_VLOG(8) << "Included the " << url_type << ": " << debug_url
+               << " with length: " << url_length
+               << ", previous total length: " << current_all_debug_urls_chars
+               << ", new total length: "
+               << current_all_debug_urls_chars + url_length;
+    return debug_url;
+  } else {
+    PS_VLOG(8) << "Skipping " << url_type << " of length: " << url_length
+               << ", since it will cause the new running total to become: "
+               << current_all_debug_urls_chars + url_length
+               << " (which surpasses the limit: "
+               << max_allowed_size_all_debug_urls_chars << ")";
+  }
+  return "";
 }
 
 }  // namespace
 
 void MayLogScoreAdsInput(const std::vector<std::shared_ptr<std::string>>& input,
                          ContextImpl& log_context) {
-  PS_VLOG(2, log_context)
-      << "\n\nScore Ad Input Args:"
-      << "\nAdMetadata:\n"
+  PS_VLOG(kDispatch, log_context)
+      << "\n\nScore Ad Input Args:" << "\nAdMetadata:\n"
       << *(input[ScoreArgIndex(ScoreAdArgs::kAdMetadata)]) << "\nBid:\n"
       << *(input[ScoreArgIndex(ScoreAdArgs::kBid)]) << "\nAuction Config:\n"
       << *(input[ScoreArgIndex(ScoreAdArgs::kAuctionConfig)])
@@ -267,7 +304,7 @@ BuildTrustedScoringSignals(
             raw_request.scoring_signals().data());
     if (parse_result.IsError()) {
       // TODO (b/285215004): Print offset to ease debugging.
-      PS_VLOG(2, log_context)
+      PS_VLOG(kNoisyWarn, log_context)
           << "Trusted scoring signals JSON parse error: "
           << rapidjson::GetParseError_En(parse_result.Code())
           << ", trusted signals were: " << raw_request.scoring_signals();
@@ -339,7 +376,7 @@ BuildTrustedScoringSignals(
       combined_formatted_ad_signals.try_emplace(render_url, std::move(buffer));
     }
 
-    PS_VLOG(2, log_context)
+    PS_VLOG(kStats, log_context)
         << "\nTrusted Scoring Signals Deserialize Time: "
         << ToInt64Microseconds((absl::Now() - start_parse_time))
         << " microseconds for " << combined_formatted_ad_signals.size()
@@ -375,8 +412,8 @@ void MayPopulateScoringSignalsForProtectedAppSignals(
         combined_signals.try_emplace(protected_app_signals_ad_bid.render(),
                                      std::move(combined_signals_for_this_bid));
     if (!succeeded) {
-      PS_VLOG(1, log_context) << "Render URL overlaps between bids: "
-                              << protected_app_signals_ad_bid.render();
+      PS_LOG(ERROR, log_context) << "Render URL overlaps between bids: "
+                                 << protected_app_signals_ad_bid.render();
     }
   }
 }
@@ -423,8 +460,8 @@ ParseAdRejectionReason(const rapidjson::Document& score_ad_resp,
 absl::StatusOr<ScoreAdsResponse::AdScore> ParseScoreAdResponse(
     const rapidjson::Document& score_ad_resp,
     int max_allowed_size_debug_url_chars,
-    long max_allowed_size_all_debug_urls_chars,
-    long current_all_debug_urls_chars, bool device_component_auction) {
+    int64_t max_allowed_size_all_debug_urls_chars,
+    bool device_component_auction, int64_t& current_all_debug_urls_chars) {
   ScoreAdsResponse::AdScore score_ads_response;
   // Default value.
   score_ads_response.set_allow_component_auction(false);
@@ -508,37 +545,28 @@ absl::StatusOr<ScoreAdsResponse::AdScore> ParseScoreAdResponse(
   if (debug_report_urls_itr == score_ad_resp.MemberEnd()) {
     return score_ads_response;
   }
+
   DebugReportUrls debug_report_urls;
-  if (debug_report_urls_itr->value.HasMember(
-          kAuctionDebugWinUrlPropertyForScoreAd) &&
-      debug_report_urls_itr->value[kAuctionDebugWinUrlPropertyForScoreAd]
-          .IsString()) {
-    absl::string_view win_debug_url =
-        debug_report_urls_itr->value[kAuctionDebugWinUrlPropertyForScoreAd]
-            .GetString();
-    int win_url_length = win_debug_url.length();
-    if (win_url_length <= max_allowed_size_debug_url_chars &&
-        win_url_length + current_all_debug_urls_chars <=
-            max_allowed_size_all_debug_urls_chars) {
-      debug_report_urls.set_auction_debug_win_url(win_debug_url);
-      current_all_debug_urls_chars += win_url_length;
-    }
+  const auto& debug_reporting_urls = debug_report_urls_itr->value;
+
+  absl::string_view win_debug_url = GetDebugUrlIfInLimit(
+      kAuctionDebugWinUrlPropertyForScoreAd, debug_reporting_urls,
+      max_allowed_size_debug_url_chars, max_allowed_size_all_debug_urls_chars,
+      current_all_debug_urls_chars);
+  if (!win_debug_url.empty()) {
+    debug_report_urls.set_auction_debug_win_url(win_debug_url);
+    current_all_debug_urls_chars += win_debug_url.size();
   }
-  if (debug_report_urls_itr->value.HasMember(
-          kAuctionDebugLossUrlPropertyForScoreAd) &&
-      debug_report_urls_itr->value[kAuctionDebugLossUrlPropertyForScoreAd]
-          .IsString()) {
-    absl::string_view loss_debug_url =
-        debug_report_urls_itr->value[kAuctionDebugLossUrlPropertyForScoreAd]
-            .GetString();
-    int loss_url_length = loss_debug_url.length();
-    if (loss_url_length <= max_allowed_size_debug_url_chars &&
-        loss_url_length + current_all_debug_urls_chars <=
-            max_allowed_size_all_debug_urls_chars) {
-      debug_report_urls.set_auction_debug_loss_url(loss_debug_url);
-    }
+  absl::string_view loss_debug_url = GetDebugUrlIfInLimit(
+      kAuctionDebugLossUrlPropertyForScoreAd, debug_reporting_urls,
+      max_allowed_size_debug_url_chars, max_allowed_size_all_debug_urls_chars,
+      current_all_debug_urls_chars);
+  if (!loss_debug_url.empty()) {
+    debug_report_urls.set_auction_debug_loss_url(loss_debug_url);
+    current_all_debug_urls_chars += loss_debug_url.size();
   }
-  *score_ads_response.mutable_debug_report_urls() = debug_report_urls;
+  *score_ads_response.mutable_debug_report_urls() =
+      std::move(debug_report_urls);
   return score_ads_response;
 }
 
@@ -548,13 +576,14 @@ absl::StatusOr<DispatchRequest> BuildScoreAdRequest(
     const std::shared_ptr<std::string>& auction_config,
     absl::string_view bid_metadata,
     server_common::log::ContextImpl& log_context,
-    const bool enable_adtech_code_logging, const bool enable_debug_reporting) {
+    const bool enable_adtech_code_logging, const bool enable_debug_reporting,
+    absl::string_view code_version) {
   // Construct the wrapper struct for our V8 Dispatch Request.
   DispatchRequest score_ad_request;
   // TODO(b/250893468) Revisit dispatch id.
   score_ad_request.id = ad_render_url;
   // TODO(b/258790164) Update after code is fetched periodically.
-  score_ad_request.version_string = "v1";
+  score_ad_request.version_string = code_version;
   score_ad_request.handler_name = DispatchHandlerFunctionWithSellerWrapper;
 
   score_ad_request.input = std::vector<std::shared_ptr<std::string>>(

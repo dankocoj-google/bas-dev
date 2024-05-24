@@ -99,6 +99,7 @@ cc_library(
         "//services/bidding_service/benchmarking:bidding_no_op_logger",
         "//services/bidding_service/code_wrapper:buyer_code_wrapper",
         "//services/bidding_service/data:runtime_config",
+        "//services/common:feature_flags",
         "//services/common/clients/code_dispatcher:code_dispatch_client",
         "//services/common/clients/kv_server:kv_async_client",
         "//services/common/code_dispatch:code_dispatch_reactor",
@@ -232,14 +233,11 @@ cc_proto_library(
 cc_binary(
     name = "server",
     srcs = ["bidding_main.cc"],
-    defines = select({
-        "//:inference": ["PS_INFERENCE_NON_PROD=1"],
-        "//conditions:default": [],
-    }),
     linkopts = [
         "-Wl,-rpath,\\$$ORIGIN/../lib",
     ],
     local_defines = ENABLE_CORE_DUMPS_DEFINES,
+    malloc = "@com_google_tcmalloc//tcmalloc",
     visibility = ["//visibility:public"],
     deps = [
         ":bidding_code_fetch_config_cc_proto",
@@ -262,6 +260,7 @@ cc_binary(
         "//services/common/telemetry:configure_telemetry",
         "//services/common/util:file_util",
         "//services/common/util:request_response_constants",
+        "//services/common/util:tcmalloc_utils",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_grpc_grpc//:grpc++_reflection",  # for grpc_cli
         "@com_google_absl//absl/debugging:failure_signal_handler",
@@ -295,6 +294,7 @@ cc_test(
         "//services/bidding_service:generate_bids_reactor",
         "//services/bidding_service:generate_bids_reactor_test_utils",
         "//services/bidding_service/code_wrapper:buyer_code_wrapper",
+        "//services/common:feature_flags",
         "//services/common/constants:common_service_flags",
         "//services/common/encryption:key_fetcher_factory",
         "//services/common/encryption:mock_crypto_client_wrapper",

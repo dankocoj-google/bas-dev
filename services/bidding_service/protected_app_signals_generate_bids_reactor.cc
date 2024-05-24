@@ -21,12 +21,14 @@
 
 #include <google/protobuf/util/json_util.h>
 
+#include "absl/flags/flag.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/numbers.h"
 #include "public/applications/pas/retrieval_request_builder.h"
 #include "public/applications/pas/retrieval_response_parser.h"
 #include "services/bidding_service/code_wrapper/buyer_code_wrapper.h"
 #include "services/bidding_service/constants.h"
+#include "services/common/feature_flags.h"
 #include "services/common/util/json_util.h"
 #include "services/common/util/reporting_util.h"
 #include "services/common/util/request_metadata.h"
@@ -60,7 +62,7 @@ inline void PopulateArgInRomaRequest(
 // Gets string information about a bid's well-formed-ness.
 inline std::string GetBidDebugInfo(const ProtectedAppSignalsAdWithBid& bid) {
   return absl::StrCat("Is non-zero bid: ", bid.bid() > 0.0f,
-                      ", Num egress bytes: ", bid.egress_features().size(),
+                      ", Num egress bytes: ", bid.egress_payload().size(),
                       ", has debug report urls: ", bid.has_debug_report_urls());
 }
 
@@ -117,13 +119,20 @@ ProtectedAppSignalsGenerateBidsReactor::CreateAdsRetrievalRequest(
     ad_render_ids_list =
         std::vector<std::string>(ad_render_ids->begin(), ad_render_ids->end());
   }
-  return std::make_unique<kv_server::v2::GetValuesRequest>(
-      kv_server::application_pas::BuildRetrievalRequest(
-          prepare_data_for_ads_retrieval_response,
-          {{kClientIp, metadata_[kClientIpKey]},
-           {kAcceptLanguage, metadata_[kAcceptLanguageKey]},
-           {kUserAgent, metadata_[kUserAgentKey]}},
-          raw_request_.buyer_signals(), std::move(ad_render_ids_list)));
+  auto ads_retrieval_request =
+      std::make_unique<kv_server::v2::GetValuesRequest>(
+          kv_server::application_pas::BuildRetrievalRequest(
+              prepare_data_for_ads_retrieval_response,
+              {{kClientIp, metadata_[kClientIpKey]},
+               {kAcceptLanguage, metadata_[kAcceptLanguageKey]},
+               {kUserAgent, metadata_[kUserAgentKey]}},
+              raw_request_.buyer_signals(), std::move(ad_render_ids_list)));
+  // Set consented debug config.
+  if (raw_request_.has_consented_debug_config()) {
+    *ads_retrieval_request->mutable_consented_debug_config() =
+        raw_request_.consented_debug_config();
+  }
+  return ads_retrieval_request;
 }
 
 std::unique_ptr<kv_server::v2::GetValuesRequest>
@@ -134,6 +143,11 @@ ProtectedAppSignalsGenerateBidsReactor::CreateKVLookupRequest(
   auto request = std::make_unique<kv_server::v2::GetValuesRequest>(
       kv_server::application_pas::BuildLookupRequest(
           std::move(ad_render_ids_list)));
+  // Set consented debug config.
+  if (raw_request_.has_consented_debug_config()) {
+    *request->mutable_consented_debug_config() =
+        raw_request_.consented_debug_config();
+  }
   PS_VLOG(8) << __func__
              << " Created KV lookup request: " << request->DebugString();
   return request;
@@ -147,8 +161,8 @@ void ProtectedAppSignalsGenerateBidsReactor::FetchAds(
       [this, prepare_data_for_ads_retrieval_response](
           KVLookUpResult ad_retrieval_result) {
         if (!ad_retrieval_result.ok()) {
-          PS_VLOG(2, log_context_) << "Ad retrieval request failed: "
-                                   << ad_retrieval_result.status();
+          PS_VLOG(kNoisyWarn, log_context_) << "Ad retrieval request failed: "
+                                            << ad_retrieval_result.status();
           EncryptResponseAndFinish(grpc::Status(
               grpc::INTERNAL, ad_retrieval_result.status().ToString()));
           return;
@@ -160,7 +174,7 @@ void ProtectedAppSignalsGenerateBidsReactor::FetchAds(
       absl::Milliseconds(ad_bids_retrieval_timeout_ms_));
 
   if (!status.ok()) {
-    PS_VLOG(2, log_context_)
+    PS_VLOG(kNoisyWarn, log_context_)
         << "Failed to execute ad retrieval request: " << status;
     EncryptResponseAndFinish(grpc::Status(grpc::INTERNAL, status.ToString()));
   }
@@ -249,14 +263,19 @@ void ProtectedAppSignalsGenerateBidsReactor::OnFetchAdsDataDone(
       },
       [this](const ProtectedAppSignalsAdWithBid& bid) {
         if (!IsValidBid(bid)) {
-          PS_VLOG(2, log_context_) << "Skipping protected app signals bid ("
-                                   << GetBidDebugInfo(bid) << ")";
+          PS_VLOG(kNoisyWarn, log_context_)
+              << "Skipping protected app signals bid (" << GetBidDebugInfo(bid)
+              << ")";
         } else {
           PS_VLOG(3, log_context_)
               << "Successful non-zero protected app signals bid received";
           auto* added_bid = raw_response_.add_bids();
           *added_bid = bid;
-          added_bid->clear_egress_features();
+          added_bid->clear_egress_payload();
+          if (!raw_request_.enable_unlimited_egress() ||
+              !absl::GetFlag(FLAGS_enable_temporary_unlimited_egress)) {
+            added_bid->clear_temporary_unlimited_egress_payload();
+          }
         }
         EncryptResponseAndFinish(grpc::Status::OK);
       });
@@ -285,7 +304,8 @@ DispatchRequest ProtectedAppSignalsGenerateBidsReactor::
       raw_request_.buyer_signals(),
       ArgIndex(PrepareDataForRetrievalUdfArgs::kBuyerSignals), input);
   PopulateArgInRomaRequest(
-      GetFeatureFlagJson(enable_adtech_code_logging_),
+      GetFeatureFlagJson(enable_adtech_code_logging_,
+                         /*enable_debug_url_generation=*/false),
       ArgIndex(PrepareDataForRetrievalUdfArgs::kFeatureFlags), input);
   DispatchRequest request = {
       .id = raw_request_.log_context().generation_id(),
@@ -362,7 +382,7 @@ void ProtectedAppSignalsGenerateBidsReactor::FetchAdsMetadata(
           KVLookUpResult kv_look_up_result) {
         PS_VLOG(8) << "On KV response";
         if (!kv_look_up_result.ok()) {
-          PS_VLOG(2, log_context_)
+          PS_VLOG(kNoisyWarn, log_context_)
               << "KV metadata request failed: " << kv_look_up_result.status();
           EncryptResponseAndFinish(grpc::Status(
               grpc::INTERNAL, kv_look_up_result.status().ToString()));
@@ -375,7 +395,7 @@ void ProtectedAppSignalsGenerateBidsReactor::FetchAdsMetadata(
       absl::Milliseconds(ad_bids_retrieval_timeout_ms_));
 
   if (!status.ok()) {
-    PS_VLOG(2, log_context_)
+    PS_VLOG(kNoisyWarn, log_context_)
         << "Failed to execute ads metadata KV lookup request: " << status;
     EncryptResponseAndFinish(grpc::Status(grpc::INTERNAL, status.ToString()));
   }
@@ -389,10 +409,10 @@ void ProtectedAppSignalsGenerateBidsReactor::StartContextualAdsRetrieval() {
 
 void ProtectedAppSignalsGenerateBidsReactor::Execute() {
   PS_VLOG(8, log_context_) << __func__;
-  PS_VLOG(2, log_context_) << "GenerateBidsRequest:\n"
-                           << request_->DebugString();
-  PS_VLOG(1, log_context_) << "GenerateBidsRawRequest:\n"
-                           << raw_request_.DebugString();
+  PS_VLOG(kEncrypted, log_context_) << "GenerateBidsRequest:\n"
+                                    << request_->ShortDebugString();
+  PS_VLOG(kPlain, log_context_) << "GenerateBidsRawRequest:\n"
+                                << raw_request_.ShortDebugString();
 
   if (IsContextualRetrievalRequest()) {
     StartContextualAdsRetrieval();
@@ -414,7 +434,7 @@ void ProtectedAppSignalsGenerateBidsReactor::EncryptResponseAndFinish(
     grpc::Status status) {
   PS_VLOG(8, log_context_) << __func__;
   if (!EncryptResponse()) {
-    PS_VLOG(1, log_context_)
+    PS_LOG(ERROR, log_context_)
         << "Failed to encrypt the generate app signals bids response.";
     status = grpc::Status(grpc::INTERNAL, kInternalServerError);
   }

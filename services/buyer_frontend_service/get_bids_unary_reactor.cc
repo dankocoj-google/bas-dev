@@ -154,10 +154,10 @@ void GetBidsUnaryReactor::OnAllBidsDone(bool any_successful_bids) {
   }
 
   PS_VLOG(kPlain, log_context_) << "GetBidsRawResponse:\n"
-                                << get_bids_raw_response_->DebugString();
+                                << get_bids_raw_response_->ShortDebugString();
 
   if (auto encryption_status = EncryptResponse(); !encryption_status.ok()) {
-    PS_VLOG(1, log_context_) << "Failed to encrypt the response";
+    PS_LOG(ERROR, log_context_) << "Failed to encrypt the response";
     benchmarking_logger_->End();
     FinishWithStatus(
         grpc::Status(grpc::StatusCode::INTERNAL, encryption_status.ToString()));
@@ -224,15 +224,15 @@ void GetBidsUnaryReactor::Execute() {
   benchmarking_logger_->Begin();
   PS_VLOG(kEncrypted, log_context_) << "Encrypted GetBidsRequest:\n"
                                     << request_->ShortDebugString();
-  PS_VLOG(2, log_context_) << "Headers:\n"
-                           << absl::StrJoin(context_->client_metadata(), "\n",
-                                            absl::PairFormatter(
-                                                absl::StreamFormatter(), " : ",
-                                                absl::StreamFormatter()));
+  PS_VLOG(kPlain, log_context_)
+      << "Headers:\n"
+      << absl::StrJoin(context_->client_metadata(), "\n",
+                       absl::PairFormatter(absl::StreamFormatter(), " : ",
+                                           absl::StreamFormatter()));
 
   if (!decrypt_status_.ok()) {
-    PS_VLOG(1, log_context_) << "Decrypting the request failed:"
-                             << server_common::ToAbslStatus(decrypt_status_);
+    PS_LOG(ERROR, log_context_) << "Decrypting the request failed:"
+                                << server_common::ToAbslStatus(decrypt_status_);
     FinishWithStatus(decrypt_status_);
     return;
   }
@@ -303,7 +303,7 @@ void GetBidsUnaryReactor::MayGetProtectedSignalsBids() {
                              metric::kBfeErrorCountByErrorCode>(
                       1, metric::
                              kBfeGenerateProtectedAppSignalsBidsResponseError));
-                  PS_VLOG(1, log_context_)
+                  PS_LOG(ERROR, log_context_)
                       << "Execution of GenerateProtectedAppSignalsBids request "
                          "failed with status: "
                       << status;
@@ -387,7 +387,7 @@ void GetBidsUnaryReactor::MayGetProtectedAudienceBids() {
                              1, metric::kBfeBiddingSignalsResponseError));
           LogInitiatedRequestErrorMetrics(metric::kKv, response.status());
           // Return error to client.
-          PS_VLOG(1, log_context_)
+          PS_LOG(ERROR, log_context_)
               << "GetBiddingSignals request failed with status:"
               << response.status();
           async_task_tracker_.TaskCompleted(
@@ -408,7 +408,7 @@ void GetBidsUnaryReactor::PrepareAndGenerateProtectedAudienceBid(
     std::unique_ptr<BiddingSignals> bidding_signals) {
   if (!bidding_signals || !bidding_signals->trusted_signals ||
       bidding_signals->trusted_signals->empty()) {
-    PS_VLOG(1, log_context_)
+    PS_LOG(ERROR, log_context_)
         << "GetBiddingSignals request succeeded but was empty.";
     async_task_tracker_.TaskCompleted(TaskStatus::EMPTY_RESPONSE);
     return;
@@ -419,8 +419,8 @@ void GetBidsUnaryReactor::PrepareAndGenerateProtectedAudienceBid(
           CreateGenerateBidsRawRequest(raw_request_, raw_request_.buyer_input(),
                                        std::move(bidding_signals), log_context);
 
-  PS_VLOG(2, log_context_) << "GenerateBidsRequest:\n"
-                           << raw_bidding_input->ShortDebugString();
+  PS_VLOG(kOriginated, log_context_) << "GenerateBidsRequest:\n"
+                                     << raw_bidding_input->ShortDebugString();
   auto bidding_request =
       metric::MakeInitiatedRequest(metric::kBs, metric_context_.get());
   bidding_request->SetRequestSize((int)raw_bidding_input->ByteSizeLong());
@@ -447,7 +447,7 @@ void GetBidsUnaryReactor::PrepareAndGenerateProtectedAudienceBid(
                       ->AccumulateMetric<metric::kBfeErrorCountByErrorCode>(
                           1, metric::kBfeGenerateBidsResponseError));
               LogInitiatedRequestErrorMetrics(metric::kBs, status);
-              PS_VLOG(1, log_context_)
+              PS_LOG(ERROR, log_context_)
                   << "Execution of GenerateBids request failed with status: "
                   << status;
               async_task_tracker_.TaskCompleted(
