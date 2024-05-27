@@ -16,6 +16,8 @@ jobs:
 
   sync_tags:
     runs-on: ubuntu-latest
+    if: always()       # Always run this job, even if sync_code fails
+    
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
