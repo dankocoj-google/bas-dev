@@ -10,19 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: tgymnich/fork-sync@v1.8
+        continue-on-error: true
         with:
           base: main
           head: main
-
-  sync_tags:
-    runs-on: ubuntu-latest
-    if: always()       # Always run this job, even if sync_code fails
-    
-    steps:
       - name: Checkout Code
         uses: actions/checkout@v3
+        if: always()       # Always checkout, even if sync fails
       - name: Sync Tags with Upstream
+        if: always()       # Always sync tags, even if sync or checkout fails
         run: |
-          git fetch upstream --tags --force
+          git fetch https://github.com/privacysandbox/bidding-auction-servers --tags --force
           git push origin --tags --force
-        
