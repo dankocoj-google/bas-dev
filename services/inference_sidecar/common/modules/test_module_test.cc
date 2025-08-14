@@ -27,6 +27,7 @@ namespace {
 constexpr absl::string_view kModelPath =
     "__main__/testdata/models/tensorflow_1_mib_saved_model.pb";
 
+// TODO(b/416303068): Add test for inference using proto.
 TEST(TestModule, Success_Predict) {
   InferenceSidecarRuntimeConfig config;
   std::unique_ptr<ModuleInterface> module = ModuleInterface::Create(config);

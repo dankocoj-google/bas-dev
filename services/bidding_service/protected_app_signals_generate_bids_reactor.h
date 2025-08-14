@@ -28,6 +28,7 @@
 #include "services/bidding_service/benchmarking/bidding_benchmarking_logger.h"
 #include "services/bidding_service/data/runtime_config.h"
 #include "services/bidding_service/egress_schema_cache.h"
+#include "services/common/clients/cancellable_grpc_context_manager.h"
 #include "services/common/clients/code_dispatcher/v8_dispatch_client.h"
 #include "services/common/clients/kv_server/kv_async_client.h"
 #include "services/common/code_dispatch/code_dispatch_reactor.h"
@@ -70,6 +71,9 @@ class ProtectedAppSignalsGenerateBidsReactor
 
  private:
   void OnDone() override;
+
+  // Called when the reactor is cancelled by the client or times out.
+  void OnCancel() override;
 
   DispatchRequest CreatePrepareDataForAdsRetrievalRequest();
 
@@ -242,6 +246,9 @@ class ProtectedAppSignalsGenerateBidsReactor
   const bool enable_temporary_unlimited_egress_;
 
   AuctionScope auction_scope_;
+
+  std::shared_ptr<CancellableGrpcContextManager>
+      cancellable_grpc_context_manager_;
 };
 
 }  // namespace privacy_sandbox::bidding_auction_servers

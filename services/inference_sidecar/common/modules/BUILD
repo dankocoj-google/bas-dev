@@ -28,6 +28,7 @@ cc_library(
     deps = [
         ":module_interface",
         "//:test_constants",
+        "//proto:inference_payload_cc_proto",
         "//proto:inference_sidecar_cc_proto",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/log:check",
@@ -47,6 +48,7 @@ cc_test(
     deps = [
         ":test_module",
         "//proto:inference_sidecar_cc_proto",
+        "//utils:cancellation_util",
         "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
@@ -60,6 +62,7 @@ cc_library(
     ],
     deps = [
         "//proto:inference_sidecar_cc_proto",
+        "//utils:cancellation_util",
         "//utils:log",
         "@com_google_absl//absl/status:statusor",
     ],

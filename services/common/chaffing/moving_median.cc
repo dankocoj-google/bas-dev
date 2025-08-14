@@ -34,7 +34,7 @@ void MovingMedian::AddNumber(RandomNumberGenerator& rng, int value) {
   // Determine if the given value should be sampled.
   if (window_data_.size() >= window_size_ &&
       (sampling_probability_ == 0 ||
-       rng.GetUniformReal(0.0, 1.0) >= sampling_probability_)) {
+       rng.GetUniformDouble(0.0, 1.0) >= sampling_probability_)) {
     return;
   }
 

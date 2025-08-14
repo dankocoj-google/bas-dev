@@ -35,10 +35,33 @@ ABSL_FLAG(std::optional<std::string>, inference_model_bucket_paths,
           "directories to fetch the blobs from.");
 ABSL_FLAG(std::optional<std::string>, inference_model_config_path, std::nullopt,
           "Path to the model config file stored in the cloud bucket.");
-ABSL_FLAG(std::optional<int64_t>, inference_model_fetch_period_ms, std::nullopt,
-          "Period to fetch new models from the cloud bucket in milliseconds");
-ABSL_FLAG(std::optional<int64_t>, inference_sidecar_rlimit_mb, 0,
+ABSL_FLAG(std::optional<std::int64_t>, inference_model_fetch_period_ms, 300000,
+          "Period to fetch new models from the cloud bucket in milliseconds, "
+          "default period set to 5 minutes");
+ABSL_FLAG(std::optional<std::int64_t>, inference_sidecar_rlimit_mb, 0,
           "Rlimit-based memory limit for the inference sidecar");
+ABSL_FLAG(std::optional<std::int64_t>, inference_model_registration_timeout_ms,
+          60000,
+          "GRPC Timeout for RegisterModel requests in milliseconds, "
+          "60 seconds by default");
+ABSL_FLAG(std::optional<std::int64_t>, inference_model_execution_timeout_ms,
+          60000,
+          "GRPC Timeout for Predict requests in milliseconds, "
+          "60 seconds by default");
+ABSL_FLAG(std::optional<std::int64_t>, inference_model_paths_request_timeout_ms,
+          60000,
+          "GRPC Timeout for GetModelPaths requests in milliseconds, "
+          "60 seconds by default");
+ABSL_FLAG(
+    bool, inference_enable_cancellation_at_bidding, true,
+    "If true, inference cancellation is enabled at the bidding service. "
+    "This will allow the bidding service to cancel inference requests "
+    "if the inbound request expires or is cancelled. Disabled by default ");
+// TODO(b/398917990): Remove this flag once all the sidecars are fully migrated
+// to proto.
+ABSL_FLAG(bool, inference_enable_proto_parsing, false,
+          "Parse InferenceRequest into Proto instead JSON string");
+
 // The JSON string should adhere to the following format:
 // {
 //    "num_interop_threads": <integer_value>,

@@ -111,7 +111,7 @@ SelectAdReactor::SelectAdReactor(
     const RandomNumberGeneratorFactory& rng_factory, bool enable_cancellation,
     bool enable_kanon, bool enable_buyer_private_aggregate_reporting,
     int per_adtech_paapi_contributions_limit, bool fail_fast,
-    int max_buyers_solicited)
+    int max_buyers_solicited, CompressionType sfe_bfe_compression_algo)
     : request_context_(context),
       request_(request),
       response_(response),
@@ -152,12 +152,12 @@ SelectAdReactor::SelectAdReactor(
       async_task_tracker_(
           0, log_context_,  // NumTasksToTrack is set appropriately in Execute()
           [this](bool successful) { OnAllBidsDone(successful); }),
-      k_anon_api_key_(config_client_.GetStringParameter(K_ANON_API_KEY)),
       perform_scoring_signals_fetch_(
           config_client.GetStringParameter(SCORING_SIGNALS_FETCH_MODE) !=
           kSignalsNotFetched),
       fetch_scoring_signals_query_kanon_tracker_(
-          1, log_context_, [this](bool unused) {
+          1, log_context_,
+          [this](bool unused) {
             PS_VLOG(5) << (perform_scoring_signals_fetch_
                                ? "Scoring signals fetched "
                                : "")
@@ -167,7 +167,8 @@ SelectAdReactor::SelectAdReactor(
                                : "")
                        << (enable_enforce_kanon_ ? " k-anon query done " : " ");
             OnFetchScoringSignalsDone(std::move(maybe_scoring_signals_));
-          }) {
+          }),
+      sfe_bfe_compression_algo_(sfe_bfe_compression_algo) {
   if (config_client_.GetBooleanParameter(ENABLE_SELLER_FRONTEND_BENCHMARKING)) {
     benchmarking_logger_ =
         std::make_unique<BuildInputProcessResponseBenchmarkingLogger>(
@@ -283,14 +284,14 @@ AdWithBidMetadata SelectAdReactor::BuildAdWithBidMetadata(
   } else {
     result.set_k_anon_status(true);
   }
-  if (!input.buyer_reporting_id().empty()) {
+  if (input.has_buyer_reporting_id()) {
     result.set_buyer_reporting_id(input.buyer_reporting_id());
   }
-  if (!input.buyer_and_seller_reporting_id().empty()) {
+  if (input.has_buyer_and_seller_reporting_id()) {
     result.set_buyer_and_seller_reporting_id(
         input.buyer_and_seller_reporting_id());
   }
-  if (!input.selected_buyer_and_seller_reporting_id().empty()) {
+  if (input.has_selected_buyer_and_seller_reporting_id()) {
     result.set_selected_buyer_and_seller_reporting_id(
         input.selected_buyer_and_seller_reporting_id());
   }
@@ -532,6 +533,18 @@ ChaffingConfig SelectAdReactor::GetChaffingConfig(
     if (rng_) {
       num_chaff_requests = rng_->GetUniformInt(num_chaff_requests_lower_bound,
                                                chaff_request_candidates.size());
+    }
+
+    if (chaffing_v2_enabled_) {
+      double gaussian_mean =
+          chaff_request_candidates.size() / kChaffingV2GaussianMeanDivisor;
+      double num_chaff_requests_double =
+          rng_->GetNormalDouble(gaussian_mean, kChaffingV2GaussianStandardDev);
+      num_chaff_requests_double =
+          num_chaff_requests * std::clamp(num_chaff_requests_double,
+                                          /* lower bound */ 0.0,
+                                          /* higher bound */ 1.0);
+      num_chaff_requests = std::ceil(num_chaff_requests_double);
     }
   }
 
@@ -1003,13 +1016,15 @@ void SelectAdReactor::FetchBid(
   bfe_request->SetBuyer(buyer_ig_owner);
 
   RequestConfig request_config;
+  request_config.compression_type = sfe_bfe_compression_algo_;
   const bool is_chaff_request = get_bids_request->is_chaff();
   if (chaffing_enabled_ && !chaffing_v2_enabled_ && rng_) {
-    request_config = GetChaffingV1GetBidsRequestConfig(is_chaff_request, *rng_);
+    request_config = GetChaffingV1GetBidsRequestConfig(
+        is_chaff_request, *rng_, sfe_bfe_compression_algo_);
   } else if (chaffing_enabled_ && chaffing_v2_enabled_) {
     request_config = GetChaffingV2GetBidsRequestConfig(
         buyer_ig_owner, is_chaff_request, *clients_.moving_median_manager,
-        {log_context_});
+        {log_context_}, sfe_bfe_compression_algo_);
   }
 
   // If using the old request format, add a gRPC header to signal the payload is
@@ -1727,8 +1742,8 @@ void SelectAdReactor::OnScoreAdsDone(
         for (auto& ghost_winning_ad_score :
              *found_response->mutable_ghost_winning_ad_scores()) {
           HandlePrivateAggregationContributionsForGhostWinner(
-              interest_group_index_map_, ghost_winning_ad_score,
-              shared_buyer_bids_map_);
+              interest_group_index_map_, shared_buyer_bids_map_,
+              ghost_winning_ad_score);
         }
       }
       ghost_winners = &(found_response->ghost_winning_ad_scores());

@@ -38,7 +38,8 @@ struct GetBidsConfig {
   // Indicates whether Protected Audience support is enabled or not.
   bool is_protected_audience_enabled;
   // Whether chaffing is enabled.
-  bool is_chaffing_enabled;
+  bool is_chaffing_v1_enabled = false;
+  bool is_chaffing_v2_enabled = false;
   // Enable v2 for browser
   bool is_tkv_v2_browser_enabled;
   bool enable_cancellation = false;

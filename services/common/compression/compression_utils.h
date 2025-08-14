@@ -25,7 +25,7 @@
 
 namespace privacy_sandbox::bidding_auction_servers {
 
-enum CompressionType : std::uint8_t { kUncompressed = 0, kGzip = 1 };
+enum CompressionType : std::uint8_t { kUncompressed = 0, kGzip = 1, kZstd = 2 };
 
 absl::StatusOr<CompressionType> ToCompressionType(int num);
 

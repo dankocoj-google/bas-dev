@@ -90,6 +90,19 @@ cc_library(
 )
 
 cc_test(
+    name = "cancellation_util_test",
+    size = "small",
+    timeout = "short",
+    srcs = ["cancellation_util_test.cc"],
+    deps = [
+        ":cancellation_util",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "resource_size_utils_test",
     size = "small",
     timeout = "short",
@@ -236,7 +249,11 @@ cc_library(
     name = "test_util",
     hdrs = ["test_util.h"],
     deps = [
+        "//proto:inference_sidecar_cc_grpc_proto",
         "//proto:inference_sidecar_cc_proto",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest",
     ],
 )
@@ -248,5 +265,16 @@ cc_library(
     ],
     deps = [
         "@com_google_tcmalloc//tcmalloc:malloc_extension",
+    ],
+)
+
+cc_library(
+    name = "cancellation_util",
+    hdrs = ["cancellation_util.h"],
+    deps = [
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
     ],
 )

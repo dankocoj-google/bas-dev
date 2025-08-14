@@ -31,10 +31,13 @@ class MockRandomNumberGenerator : public RandomNumberGenerator {
   ~MockRandomNumberGenerator() override = default;
 
   MOCK_METHOD(int, GetUniformInt, (int lower, int upper), (override));
-  MOCK_METHOD(double, GetUniformReal, (double lower, double upper), (override));
+  MOCK_METHOD(double, GetUniformDouble, (double lower, double upper),
+              (override));
+  MOCK_METHOD(double, GetNormalDouble, (double mean, double std_dev),
+              (override));
   MOCK_METHOD(void, Shuffle, (std::vector<absl::string_view> & vector),
               (override));
-  MOCK_METHOD(bool, RandomSample, (int sample_rate_micro), (override));
+  MOCK_METHOD(bool, ShouldSample, (int sample_rate_micro), (override));
 };
 
 class MockRandomNumberGeneratorFactory : public RandomNumberGeneratorFactory {

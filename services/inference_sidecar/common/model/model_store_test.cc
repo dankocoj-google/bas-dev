@@ -30,6 +30,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "proto/inference_sidecar.pb.h"
+#include "utils/cancellation_util.h"
 
 namespace privacy_sandbox::bidding_auction_servers::inference {
 namespace {
@@ -80,6 +81,34 @@ class MockModelStore : public ModelStore<MockModel> {
   using ModelStore<MockModel>::ResetModel;
   using ModelStore<MockModel>::SetModelConstructorForTestOnly;
 };
+
+TEST(CancellationTest, PutModelFailureWithCancellation) {
+  MockCancellableContext cancelled_context{/*is_cancelled=*/true};
+
+  InferenceSidecarRuntimeConfig config;
+  MockModelStore store(config, MockModelConstructor);
+  ModelConstructMetrics model_construct_metrics;
+  RegisterModelRequest request;
+
+  absl::Status status = store.PutModel(
+      kTestModelName, request, model_construct_metrics, cancelled_context);
+
+  EXPECT_FALSE(status.ok());
+  EXPECT_EQ(status.code(), absl::StatusCode::kCancelled);
+}
+
+TEST(CancellationTest, PutModelSuccessNoCancellation) {
+  MockCancellableContext active_context{/*is_cancelled=*/false};
+
+  InferenceSidecarRuntimeConfig config;
+  MockModelStore store(config, MockModelConstructor);
+  ModelConstructMetrics model_construct_metrics;
+  RegisterModelRequest request;
+
+  absl::Status status = store.PutModel(kTestModelName, request,
+                                       model_construct_metrics, active_context);
+  EXPECT_TRUE(status.ok());
+}
 
 class ModelStoreTest : public ::testing::Test {
  protected:

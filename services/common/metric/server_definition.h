@@ -176,6 +176,15 @@ inline constexpr server_common::metrics::Definition<
 inline constexpr server_common::metrics::Definition<
     int, server_common::metrics::Privacy::kImpacting,
     server_common::metrics::Instrument::kHistogram>
+    kUdfBatchExecutionDuration(
+        "udf_execution.batch_duration_ms",
+        "End to end time taken from dispatching the batch of UDFs to "
+        "the execution of the callback (includes queue time)",
+        server_common::metrics::kTimeHistogram, 300, 10);
+
+inline constexpr server_common::metrics::Definition<
+    int, server_common::metrics::Privacy::kImpacting,
+    server_common::metrics::Instrument::kHistogram>
     kPASGenerateBidUdfExecutionDuration(
         "pas_generate_bid_udf_execution.duration_ms",
         "End to end time taken from dispatching the PAS GenerateBid UDF to the "
@@ -447,6 +456,24 @@ inline constexpr server_common::metrics::Definition<
                     "Blob fetch and load status: 0 means success, positive "
                     "numbers map to absl error status codes.");
 
+inline constexpr server_common::metrics::Definition<
+    int, server_common::metrics::Privacy::kImpacting,
+    server_common::metrics::Instrument::kHistogram>
+    kReportResultExecutionDuration(
+        "report_result_execution.duration_ms",
+        "End to end time taken from dispatching the report result request to "
+        "the execution of the callback (includes queue time)",
+        server_common::metrics::kTimeHistogram, 300, 0);
+
+inline constexpr server_common::metrics::Definition<
+    int, server_common::metrics::Privacy::kImpacting,
+    server_common::metrics::Instrument::kHistogram>
+    kReportWinExecutionDuration(
+        "report_win_execution.duration_ms",
+        "End to end time taken from dispatching the report win request to "
+        "the execution of the callback (includes queue time)",
+        server_common::metrics::kTimeHistogram, 300, 0);
+
 inline constexpr absl::string_view kSellerComponentAuctionNotAllowed =
     "seller-component-auction-not-allowed";
 
@@ -521,6 +548,7 @@ inline constexpr absl::string_view kBuyerDebugUrlStatus[] = {
     kDebugUrlRejectedDuringSampling,
     kDebugUrlRejectedForExceedingSize,
     kDebugUrlRejectedForExceedingTotalSize,
+    kDebugUrlRejectedDuringEnrollmentCheck,
     kBuyerDebugUrlSentToSeller,
 };
 
@@ -619,9 +647,9 @@ inline constexpr server_common::metrics::Definition<
         /*description*/
         "Number of errors in the bidding server by error code",
         /*partition_type*/ "error_code",
-        /*max_partitions_contributed*/ 1,
+        /*max_partitions_contributed*/ 4,
         /*public_partitions*/ kBiddingErrorCode,
-        /*upper_bound*/ 1,
+        /*upper_bound*/ 6,
         /*lower_bound*/ 0,
         /*min_noise_to_output*/ 0.99);
 
@@ -1007,6 +1035,7 @@ inline constexpr const server_common::metrics::DefinitionName*
         &kBiddingDebugUrlsSizeBytes,
         &kUdfExecutionDuration,
         &kUdfExecutionQueueingDuration,
+        &kUdfBatchExecutionDuration,
         &kUdfExecutionErrorCount,
         &kUdfExecutionDispatcherInitializationDuration,
         &kRomaExecutionDuration,
@@ -1158,8 +1187,17 @@ inline constexpr const server_common::metrics::DefinitionName*
         &kAuctionBidRejectedCount,
         &kAuctionBidRejectedPercent,
         &kUdfExecutionDuration,
+        &kUdfExecutionQueueingDuration,
+        &kRomaExecutionDuration,
+        &kRomaExecutionQueueFullnessRatio,
+        &kRomaExecutionActiveWorkerRatio,
+        &kRomaExecutionCodeRunDuration,
+        &kRomaExecutionJsonInputParsingDuration,
+        &kRomaExecutionJsEngineHandlerCallDuration,
         &kUdfExecutionErrorCount,
         &kAuctionErrorCountByErrorCode,
+        &kReportResultExecutionDuration,
+        &kReportWinExecutionDuration,
 };
 
 template <>

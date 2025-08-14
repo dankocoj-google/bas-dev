@@ -77,3 +77,9 @@ variable "namespace" {
   description = "Kubernetes Namespace"
   type        = string
 }
+
+variable "availability_zones" {
+  description = "List of Availability Zones"
+  type        = list(string)
+  default     = null
+}

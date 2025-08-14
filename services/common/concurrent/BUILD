@@ -42,3 +42,19 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "thread_pool_executor",
+    srcs = [
+        "thread_pool_executor.cc",
+    ],
+    hdrs =
+        [
+            "thread_pool_executor.h",
+        ],
+    deps = [
+        "@com_github_grpc_grpc//:grpc++",
+        "@google_privacysandbox_servers_common//src/concurrent:executor",
+        "@google_privacysandbox_servers_common//src/logger:request_context_logger",
+    ],
+)

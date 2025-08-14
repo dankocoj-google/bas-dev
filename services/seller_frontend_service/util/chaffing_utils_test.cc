@@ -16,12 +16,18 @@
 
 #include <gmock/gmock.h>
 
+#include <memory>
+#include <utility>
+
 #include "gtest/gtest.h"
+#include "services/common/chaffing/mock_moving_median.h"
 #include "services/common/chaffing/mock_moving_median_manager.h"
 #include "services/common/random/mock_rng.h"
 
 namespace privacy_sandbox::bidding_auction_servers {
 namespace {
+
+using ::testing::Return;
 
 RequestConfig CreateRequestConfig(bool is_chaff, size_t minimum_request_size) {
   return {
@@ -71,9 +77,9 @@ TEST_F(GetChaffingV2GetBidsRequestConfigTest,
        ChaffRequest_WindowFilled_MedianOk) {
   MockMovingMedianManager mock_manager;
   EXPECT_CALL(mock_manager, IsWindowFilled(test_buyer_name_))
-      .WillOnce(::testing::Return(true));
+      .WillOnce(Return(true));
   EXPECT_CALL(mock_manager, GetMedian(test_buyer_name_))
-      .WillOnce(::testing::Return(12345));
+      .WillOnce(Return(12345));
 
   bool is_chaff_request = true;
   RequestConfig actual_config = GetChaffingV2GetBidsRequestConfig(
@@ -85,7 +91,7 @@ TEST_F(GetChaffingV2GetBidsRequestConfigTest,
 
 TEST_F(GetChaffingV2GetBidsRequestConfigTest, ChaffRequest_WindowNotFilled) {
   EXPECT_CALL(mock_manager_, IsWindowFilled(test_buyer_name_))
-      .WillOnce(::testing::Return(false));
+      .WillOnce(Return(false));
 
   bool is_chaff_request = true;
   RequestConfig actual_config = GetChaffingV2GetBidsRequestConfig(
@@ -99,7 +105,7 @@ TEST_F(GetChaffingV2GetBidsRequestConfigTest, ChaffRequest_WindowNotFilled) {
 TEST_F(GetChaffingV2GetBidsRequestConfigTest,
        ChaffRequest_IsWindowFilledError) {
   EXPECT_CALL(mock_manager_, IsWindowFilled(test_buyer_name_))
-      .WillOnce(::testing::Return(absl::InternalError("Window Error")));
+      .WillOnce(Return(absl::InternalError("Window Error")));
 
   bool is_chaff_request = true;
   RequestConfig actual_config = GetChaffingV2GetBidsRequestConfig(
@@ -112,9 +118,9 @@ TEST_F(GetChaffingV2GetBidsRequestConfigTest,
 
 TEST_F(GetChaffingV2GetBidsRequestConfigTest, ChaffRequest_GetMedianError) {
   EXPECT_CALL(mock_manager_, IsWindowFilled(test_buyer_name_))
-      .WillOnce(::testing::Return(true));
+      .WillOnce(Return(true));
   EXPECT_CALL(mock_manager_, GetMedian(test_buyer_name_))
-      .WillOnce(::testing::Return(absl::InvalidArgumentError("Median Error")));
+      .WillOnce(Return(absl::InvalidArgumentError("Median Error")));
 
   bool is_chaff_request = true;
   RequestConfig actual_config = GetChaffingV2GetBidsRequestConfig(
@@ -127,7 +133,7 @@ TEST_F(GetChaffingV2GetBidsRequestConfigTest, ChaffRequest_GetMedianError) {
 
 TEST_F(GetChaffingV2GetBidsRequestConfigTest, NotChaffRequest_WindowFilled) {
   EXPECT_CALL(mock_manager_, IsWindowFilled(test_buyer_name_))
-      .WillOnce(::testing::Return(true));
+      .WillOnce(Return(true));
 
   bool is_chaff_request = false;
   RequestConfig actual_config = GetChaffingV2GetBidsRequestConfig(
@@ -138,7 +144,7 @@ TEST_F(GetChaffingV2GetBidsRequestConfigTest, NotChaffRequest_WindowFilled) {
 
 TEST_F(GetChaffingV2GetBidsRequestConfigTest, NotChaffRequest_WindowNotFilled) {
   EXPECT_CALL(mock_manager_, IsWindowFilled(test_buyer_name_))
-      .WillOnce(::testing::Return(false));
+      .WillOnce(Return(false));
 
   bool is_chaff_request = false;
   RequestConfig actual_config = GetChaffingV2GetBidsRequestConfig(
@@ -152,7 +158,7 @@ TEST_F(GetChaffingV2GetBidsRequestConfigTest, NotChaffRequest_WindowNotFilled) {
 TEST_F(GetChaffingV2GetBidsRequestConfigTest,
        NotChaffRequest_IsWindowFilledError) {
   EXPECT_CALL(mock_manager_, IsWindowFilled(test_buyer_name_))
-      .WillOnce(::testing::Return(absl::InternalError("Window Error")));
+      .WillOnce(Return(absl::InternalError("Window Error")));
 
   bool is_chaff_request = false;
   RequestConfig actual_config = GetChaffingV2GetBidsRequestConfig(
@@ -165,17 +171,72 @@ TEST_F(GetChaffingV2GetBidsRequestConfigTest,
 
 TEST(ChaffingUtilsTest, ShouldSkipChaffing) {
   MockRandomNumberGenerator mock_rng;
-  EXPECT_CALL(mock_rng, GetUniformReal(0, 1))
-      .WillOnce(::testing::Return(0))
-      .WillOnce(::testing::Return(.99));
+  EXPECT_CALL(mock_rng, GetUniformDouble(0, 1))
+      .WillOnce(Return(0))
+      .WillOnce(Return(.99));
   EXPECT_EQ(ShouldSkipChaffing(1, mock_rng), true);
   EXPECT_EQ(ShouldSkipChaffing(1, mock_rng), false);
 
-  EXPECT_CALL(mock_rng, GetUniformReal(0, 1))
-      .WillOnce(::testing::Return(0))
-      .WillOnce(::testing::Return(.99));
+  EXPECT_CALL(mock_rng, GetUniformDouble(0, 1))
+      .WillOnce(Return(0))
+      .WillOnce(Return(.99));
   EXPECT_EQ(ShouldSkipChaffing(6, mock_rng), true);
   EXPECT_EQ(ShouldSkipChaffing(6, mock_rng), false);
+}
+
+class GetBuyerChaffingV2ValuesTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    request_duration_ = std::make_unique<MockMovingMedian>();
+    response_size_ = std::make_unique<MockMovingMedian>();
+  }
+
+  // Call after setting expectatiosn on the MockMovingMedian's.
+  ChaffMedianTrackers CreateChaffMedianTracker() {
+    return {.request_duration = std::move(request_duration_),
+            .response_size = std::move(response_size_)};
+  }
+
+  std::unique_ptr<MockMovingMedian> request_duration_;
+  std::unique_ptr<MockMovingMedian> response_size_;
+};
+
+TEST_F(GetBuyerChaffingV2ValuesTest, Success) {
+  EXPECT_CALL(*request_duration_, IsWindowFilled).WillOnce(Return(true));
+  EXPECT_CALL(*response_size_, IsWindowFilled).WillOnce(Return(true));
+  EXPECT_CALL(*request_duration_, GetMedian).WillOnce(Return(1));
+  EXPECT_CALL(*response_size_, GetMedian).WillOnce(Return(2));
+
+  absl::StatusOr<std::pair<absl::Duration, int>> actual =
+      GetBuyerChaffingV2Values(CreateChaffMedianTracker());
+  ASSERT_TRUE(actual.ok()) << actual.status();
+
+  std::pair<absl::Duration, int> expected(absl::Milliseconds(1), 2);
+  EXPECT_EQ(*actual, expected);
+}
+
+TEST_F(GetBuyerChaffingV2ValuesTest, WindowNotFilledReturnsDefaultValues) {
+  EXPECT_CALL(*response_size_, IsWindowFilled).WillOnce(Return(false));
+
+  absl::StatusOr<std::pair<absl::Duration, int>> actual =
+      GetBuyerChaffingV2Values(CreateChaffMedianTracker());
+  ASSERT_TRUE(actual.ok()) << actual.status();
+
+  std::pair<absl::Duration, int> expected{
+      kChaffingV2UnfilledWindowResponseDurationMs,
+      kChaffingV2UnfilledWindowResponseSizeBytes};
+  EXPECT_EQ(*actual, expected);
+}
+
+TEST_F(GetBuyerChaffingV2ValuesTest, GetMedianError) {
+  EXPECT_CALL(*request_duration_, IsWindowFilled).WillOnce(Return(true));
+  EXPECT_CALL(*response_size_, IsWindowFilled).WillOnce(Return(true));
+  EXPECT_CALL(*request_duration_, GetMedian)
+      .WillOnce(Return(absl::InvalidArgumentError("Some error")));
+
+  absl::StatusOr<std::pair<absl::Duration, int>> actual =
+      GetBuyerChaffingV2Values(CreateChaffMedianTracker());
+  ASSERT_FALSE(actual.ok()) << actual.status();
 }
 
 }  // namespace

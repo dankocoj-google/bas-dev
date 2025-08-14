@@ -79,6 +79,15 @@ cc_library(
 )
 
 cc_library(
+    name = "mock_moving_median",
+    hdrs = ["mock_moving_median.h"],
+    deps = [
+        ":moving_median",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_library(
     name = "mock_moving_median_manager",
     hdrs = ["mock_moving_median_manager.h"],
     deps = [

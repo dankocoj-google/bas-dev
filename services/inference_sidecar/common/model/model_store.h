@@ -22,6 +22,8 @@
 #include <utility>
 #include <vector>
 
+#include <grpcpp/server_context.h>
+
 #include "absl/container/flat_hash_map.h"
 #include "absl/functional/any_invocable.h"
 #include "absl/log/check.h"
@@ -33,6 +35,7 @@
 #include "absl/synchronization/notification.h"
 #include "proto/inference_sidecar.pb.h"
 #include "src/util/status_macro/status_macros.h"
+#include "utils/cancellation_util.h"
 
 namespace privacy_sandbox::bidding_auction_servers::inference {
 
@@ -87,7 +90,10 @@ class ModelStore {
   // This method is thread-safe.
   absl::Status PutModel(absl::string_view key,
                         const RegisterModelRequest& request,
-                        ModelConstructMetrics& prod_model_construct_metrics) {
+                        ModelConstructMetrics& prod_model_construct_metrics,
+                        const CancellableServerContext& server_context =
+                            EmptyCancellableServerContext()) {
+    RETURN_IF_CANCELLED(server_context, CancelLocation::kModelPutPreLock);
     PS_ASSIGN_OR_RETURN(
         std::shared_ptr<ModelType> prod_model,
         model_constructor_(config_, request, prod_model_construct_metrics));
@@ -100,6 +106,8 @@ class ModelStore {
     absl::MutexLock prod_model_lock(&prod_model_mutex_);
     absl::MutexLock consented_model_lock(&consented_model_mutex_);
     absl::MutexLock lock(&per_model_inference_count_mu_);
+
+    RETURN_IF_CANCELLED(server_context, CancelLocation::kModelPutPostLock);
 
     model_data_map_[key] = request;
     prod_model_map_[key] = std::move(prod_model);

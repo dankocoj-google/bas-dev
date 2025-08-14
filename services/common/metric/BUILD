@@ -57,6 +57,18 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "roma_metric_utils",
+    hdrs = [
+        "roma_metric_utils.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":server_definition",
+        "//services/common/clients/code_dispatcher:v8_dispatch_client",
+    ],
+)
+
 cc_test(
     name = "server_definition_test",
     timeout = "short",
@@ -64,5 +76,17 @@ cc_test(
     deps = [
         ":server_definition",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "roma_metric_utils_test",
+    timeout = "short",
+    srcs = ["roma_metric_utils_test.cc"],
+    deps = [
+        ":roma_metric_utils",
+        ":server_definition",
+        "@com_google_googletest//:gtest_main",
+        "@google_privacysandbox_servers_common//src/roma/interface",
     ],
 )

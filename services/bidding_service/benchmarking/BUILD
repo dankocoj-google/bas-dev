@@ -87,3 +87,16 @@ cc_binary(
         "@com_google_benchmark//:benchmark_main",
     ],
 )
+
+cc_binary(
+    name = "browser_signals_benchmark",
+    testonly = True,
+    srcs = [
+        "browser_signals_benchmark.cc",
+    ],
+    deps = [
+        "//services/bidding_service/utils:browser_signals_util",
+        "@google_benchmark//:benchmark",
+        "@google_benchmark//:benchmark_main",
+    ],
+)

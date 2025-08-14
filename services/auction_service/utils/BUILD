@@ -24,6 +24,10 @@ cc_library(
     hdrs = [
         "proto_utils.h",
     ],
+    visibility = [
+        "//services/auction_service:__pkg__",
+        "//services/auction_service/benchmarking:__pkg__",
+    ],
     deps = [
         "//api:bidding_auction_servers_cc_grpc_proto",
         "//services/auction_service:auction_constants",

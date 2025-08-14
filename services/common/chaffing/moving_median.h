@@ -48,14 +48,16 @@ class MovingMedian {
         median_(std::move(other.median_)),
         sampling_probability_(other.sampling_probability_) {}
 
+  virtual ~MovingMedian() = default;
+
   // Inserts a new value into the sliding window. If the window reaches its
   // maximum size, the oldest value is removed.
-  void AddNumber(RandomNumberGenerator& rng, int value);
+  virtual void AddNumber(RandomNumberGenerator& rng, int value);
 
   // Returns median of the window IF the window is full, otherwise an error.
-  absl::StatusOr<int> GetMedian() const;
+  virtual absl::StatusOr<int> GetMedian() const;
 
-  bool IsWindowFilled() const;
+  virtual bool IsWindowFilled() const;
 
  private:
   size_t window_size_;

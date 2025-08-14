@@ -21,6 +21,7 @@ cc_library(
     hdrs = ["model_store.h"],
     deps = [
         "//proto:inference_sidecar_cc_proto",
+        "//utils:cancellation_util",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/log:check",
@@ -38,6 +39,7 @@ cc_test(
     deps = [
         ":model_store",
         "//proto:inference_sidecar_cc_proto",
+        "//utils:test_util",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",

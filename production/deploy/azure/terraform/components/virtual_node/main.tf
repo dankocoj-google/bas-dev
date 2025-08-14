@@ -45,5 +45,10 @@ resource "helm_release" "virtual_node" {
     value = "container-image=vn2"
   }
 
+  set {
+    name  = "zones"
+    value = var.availability_zones != null ? var.availability_zones[0] : ""
+  }
+
 
 }

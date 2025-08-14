@@ -77,10 +77,13 @@ SelectAdReactorForApp::SelectAdReactorForApp(
     const ReportWinMap& report_win_map,
     const RandomNumberGeneratorFactory& rng_factory, bool enable_cancellation,
     bool enable_kanon, bool enable_buyer_private_aggregate_reporting,
-    int per_adtech_paapi_contributions_limit, bool fail_fast)
+    int per_adtech_paapi_contributions_limit, bool fail_fast,
+    CompressionType sfe_bfe_compression_algo)
     : SelectAdReactor(context, request, response, executor, clients,
                       config_client, report_win_map, rng_factory,
-                      enable_cancellation, enable_kanon, fail_fast) {}
+                      enable_cancellation, enable_kanon, fail_fast,
+                      /* max_buyers_solicited */ metric::kMaxBuyersSolicited,
+                      sfe_bfe_compression_algo) {}
 
 absl::StatusOr<std::string> SelectAdReactorForApp::GetNonEncryptedResponse(
     const std::optional<ScoreAdsResponse::AdScore>& high_score,

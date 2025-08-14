@@ -35,7 +35,7 @@ inline constexpr char kKvRenderUrls[] = "renderUrls";
 inline constexpr char kKvAdComponentRenderUrls[] = "adComponentRenderUrls";
 inline constexpr char kKvExperimentGroupId[] = "experiment_group_id";
 // TODO(b/379335128): Change to "TimeoutDuration" and verify no perf regression.
-inline constexpr char kRomaTimeoutTag[] = "IGNORED";
+inline constexpr char kRomaTimeoutTag[] = "TimeoutDuration";
 
 }  // namespace privacy_sandbox::bidding_auction_servers
 

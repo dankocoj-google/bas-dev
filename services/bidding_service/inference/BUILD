@@ -28,6 +28,7 @@ cc_library(
     deps = [
         ":inference_flags",
         "//services/common/blob_fetch:blob_fetcher",
+        "//services/common/clients:cancellable_grpc_context_manager",
         "//services/common/clients/code_dispatcher:request_context",
         "//services/common/loggers:request_log_context",
         "//services/common/metric:server_definition",
@@ -40,12 +41,15 @@ cc_library(
         "@google_privacysandbox_servers_common//src/roma/roma_service",
         "@google_privacysandbox_servers_common//src/util/status_macro:status_macros",
         "@google_privacysandbox_servers_common//src/util/status_macro:status_util",
+        "@inference_common//proto:inference_payload_cc_proto",
         "@inference_common//proto:inference_sidecar_cc_grpc_proto",
         "@inference_common//proto:inference_sidecar_cc_proto",
         "@inference_common//sandbox:sandbox_executor",
         "@inference_common//utils:error",
         "@inference_common//utils:file_util",
         "@inference_common//utils:inference_error_code",
+        "@inference_common//utils:inference_metric_util",
+        "@inference_common//utils:request_proto_parser",
         "@rapidjson",
     ],
 )

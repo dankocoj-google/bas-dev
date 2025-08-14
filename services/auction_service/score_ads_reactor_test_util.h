@@ -114,7 +114,8 @@ class ScoreAdsReactorTestHelper {
       const ScoreAdsRequest::ScoreAdsRawRequest& raw_request,
       MockV8DispatchClient& dispatcher,
       const AuctionServiceRuntimeConfig& runtime_config =
-          AuctionServiceRuntimeConfig());
+          AuctionServiceRuntimeConfig(),
+      AdtechEnrollmentCacheInterface* adtech_attestation_cache = nullptr);
   ScoreAdsRequest request_;
   TrustedServersConfigClient config_client_{{}};
   std::unique_ptr<MockAsyncReporter> async_reporter =

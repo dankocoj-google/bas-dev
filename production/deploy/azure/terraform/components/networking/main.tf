@@ -22,14 +22,6 @@ resource "azurerm_virtual_network" "aks-vnet" {
   location            = var.region
 }
 
-# Creates a Private DNS Zone Link to the Virtual Network
-resource "azurerm_private_dns_zone_virtual_network_link" "vnet-link" {
-  name                  = "${azurerm_virtual_network.aks-vnet.name}-link"
-  resource_group_name   = var.resource_group_name
-  private_dns_zone_name = var.private_dns_zone_name
-  virtual_network_id    = azurerm_virtual_network.aks-vnet.id
-}
-
 # Creates subnets for aks cluster, virtual nodes, agfc, and a default subnet
 resource "azurerm_subnet" "subnets" {
   for_each = {

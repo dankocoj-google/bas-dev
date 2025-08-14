@@ -27,7 +27,7 @@ namespace privacy_sandbox::bidding_auction_servers {
 
 // Returns the keys of the map.
 template <typename T, typename U>
-absl::flat_hash_set<T> KeySet(absl::flat_hash_map<T, U> input) {
+absl::flat_hash_set<T> KeySet(const absl::flat_hash_map<T, U>& input) {
   absl::flat_hash_set<T> keys;
   for (const auto& entry : input) {
     keys.insert(entry.first);
@@ -39,7 +39,7 @@ absl::flat_hash_set<T> KeySet(absl::flat_hash_map<T, U> input) {
 // Specialization that returns absl::string_view for maps with std::string keys.
 template <typename T>
 absl::flat_hash_set<absl::string_view> KeySet(
-    absl::flat_hash_map<std::string, T> input) {
+    const absl::flat_hash_map<std::string, T>& input) {
   absl::flat_hash_set<absl::string_view> keys;
   for (const auto& entry : input) {
     keys.insert(absl::string_view(entry.first));

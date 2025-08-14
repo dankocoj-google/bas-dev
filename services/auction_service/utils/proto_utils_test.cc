@@ -49,6 +49,7 @@ constexpr char kTestBuyerAndSellerReportingId[] =
     "testBuyerAndSellerReportingId";
 constexpr char kTestSelectedReportingId[] =
     "testSelectedBuyerAndSellerReportingId";
+constexpr char kTestStringWithQuote[] = "stop\", \"custom_key\": \"val";
 
 using ::google::protobuf::util::MessageDifferencer;
 using AdWithBidMetadata =
@@ -99,6 +100,45 @@ TEST(MakeBidMetadataTest, PopulatesExpectedValues) {
 
   const rapidjson::Document parsed_output = ParseJson(output);
   CheckGenericOutput(parsed_output);
+}
+
+TEST(MakeBidMetadataTest, SetsEscapedValuesInStringFields) {
+  google::protobuf::RepeatedPtrField<std::string> component_urls;
+  component_urls.Add(kTestStringWithQuote);
+  std::string output = MakeBidMetadata(
+      kTestStringWithQuote, kTestStringWithQuote, kTestStringWithQuote,
+      component_urls, kTestStringWithQuote, kTestStringWithQuote,
+      kTestSellerDataVersion,
+      {.buyer_reporting_id = kTestStringWithQuote,
+       .buyer_and_seller_reporting_id = kTestStringWithQuote,
+       .selected_buyer_and_seller_reporting_id = kTestStringWithQuote});
+
+  const rapidjson::Document parsed_output = ParseJson(output);
+  EXPECT_TRUE(parsed_output.FindMember("custom_key") ==
+              parsed_output.MemberEnd());
+  EXPECT_STREQ(parsed_output[kTopWindowHostnamePropertyForScoreAd].GetString(),
+               kTestStringWithQuote)
+      << output;
+  EXPECT_STREQ(parsed_output[kIGOwnerPropertyForScoreAd].GetString(),
+               kTestStringWithQuote);
+  EXPECT_STREQ(parsed_output[kRenderUrlsPropertyForScoreAd].GetString(),
+               kTestStringWithQuote);
+  EXPECT_TRUE(parsed_output[kAdComponentsPropertyForScoreAd].IsArray());
+  EXPECT_STREQ(
+      parsed_output[kAdComponentsPropertyForScoreAd].GetArray()[0].GetString(),
+      kTestStringWithQuote);
+  EXPECT_STREQ(parsed_output[kBidCurrencyPropertyForScoreAd].GetString(),
+               kTestStringWithQuote);
+  EXPECT_STREQ(parsed_output[kBuyerReportingIdForScoreAd].GetString(),
+               kTestStringWithQuote);
+  EXPECT_STREQ(parsed_output[kBuyerAndSellerReportingIdForScoreAd].GetString(),
+               kTestStringWithQuote);
+  EXPECT_STREQ(
+      parsed_output[kSelectedBuyerAndSellerReportingIdForScoreAd].GetString(),
+      kTestStringWithQuote);
+  EXPECT_STREQ(
+      parsed_output[kTopLevelSellerFieldPropertyForScoreAd].GetString(),
+      kTestStringWithQuote);
 }
 
 TEST(MakeBidMetadataTest, PopulatesExpectedValuesForComponentAuction) {

@@ -38,6 +38,7 @@ constexpr char kDesirabilityPropertyForScoreAd[] = "desirability";
 constexpr char kAllowComponentAuctionPropertyForScoreAd[] =
     "allowComponentAuction";
 constexpr char kBidCurrencyPropertyForScoreAd[] = "bidCurrency";
+constexpr char kAdComponentsPropertyForScoreAd[] = "adComponents";
 constexpr char kSellerDataVersionPropertyForScoreAd[] = "dataVersion";
 constexpr char kAdMetadataForComponentAuction[] = "ad";
 constexpr char kModifiedBidForComponentAuction[] = "bid";

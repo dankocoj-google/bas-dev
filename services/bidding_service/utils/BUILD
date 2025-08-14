@@ -57,6 +57,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//api:bidding_auction_servers_cc_proto",
+        "//services/common/attestation:adtech_enrollment_cache",
+        "//services/common/attestation:attestation_util",
         "//services/common/loggers:request_log_context",
         "//services/common/metric:server_definition",
         "//services/common/util:reporting_util",
@@ -71,9 +73,46 @@ cc_test(
     srcs = ["validation_test.cc"],
     deps = [
         ":validation",
+        "//services/common/attestation:adtech_enrollment_cache",
         "//services/common/test:random",
         "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/strings:string_view",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "browser_signals_util",
+    srcs = [
+        "browser_signals_util.cc",
+    ],
+    hdrs = [
+        "browser_signals_util.h",
+    ],
+    visibility = [
+        "//services/bidding_service:__pkg__",
+        "//services/bidding_service/benchmarking:__pkg__",
+    ],
+    deps = [
+        "//api:bidding_auction_servers_cc_grpc_proto",
+        "//services/common/constants:common_constants",
+        "//services/common/util:json_util",
+        "//services/common/util:request_response_constants",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@rapidjson",
+    ],
+)
+
+cc_test(
+    name = "browser_signals_util_test",
+    size = "small",
+    srcs = ["browser_signals_util_test.cc"],
+    deps = [
+        ":browser_signals_util",
+        "//services/common/util:json_util",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )

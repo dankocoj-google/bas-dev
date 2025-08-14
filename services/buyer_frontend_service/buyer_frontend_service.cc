@@ -33,7 +33,8 @@ BuyerFrontEndService::BuyerFrontEndService(
         key_fetcher_manager,
     std::unique_ptr<CryptoClientWrapperInterface> crypto_client,
     std::unique_ptr<KVAsyncClient> kv_async_client, const GetBidsConfig config,
-    server_common::Executor& executor, bool enable_benchmarking)
+    server_common::Executor& executor,
+    const ChaffMedianTrackers& chaff_median_trackers, bool enable_benchmarking)
     : bidding_signals_async_provider_(
           config.bidding_signals_fetch_mode ==
                   BiddingSignalsFetchMode::NOT_FETCHED
@@ -54,7 +55,8 @@ BuyerFrontEndService::BuyerFrontEndService(
                                BiddingSignalsFetchMode::NOT_FETCHED
                            ? nullptr
                            : std::move(kv_async_client)),
-      executor_(executor) {
+      executor_(executor),
+      chaff_median_trackers_(chaff_median_trackers) {
   if (config_.is_protected_app_signals_enabled) {
     protected_app_signals_bidding_async_client_ =
         std::make_unique<ProtectedAppSignalsBiddingAsyncGrpcClient>(
@@ -83,7 +85,8 @@ BuyerFrontEndService::BuyerFrontEndService(ClientRegistry client_registry,
                                BiddingSignalsFetchMode::NOT_FETCHED
                            ? nullptr
                            : std::move(client_registry.kv_async_client)),
-      executor_(executor) {}
+      executor_(executor),
+      chaff_median_trackers_(client_registry.chaff_median_trackers) {}
 
 grpc::ServerUnaryReactor* BuyerFrontEndService::GetBids(
     grpc::CallbackServerContext* context, const GetBidsRequest* request,
@@ -96,7 +99,7 @@ grpc::ServerUnaryReactor* BuyerFrontEndService::GetBids(
       *bidding_async_client_, config_,
       protected_app_signals_bidding_async_client_.get(),
       key_fetcher_manager_.get(), crypto_client_.get(), kv_async_client_.get(),
-      executor_, rng_factory_, enable_benchmarking_);
+      executor_, rng_factory_, chaff_median_trackers_, enable_benchmarking_);
   reactor->Execute();
   return reactor.release();
 }

@@ -152,7 +152,9 @@ void AllowTensorFlow(sandbox2::PolicyBuilder& builder) {
 
 void AllowAmx(sandbox2::PolicyBuilder& builder) {
   // arch_prctl is required for Intel AMX.
+#if defined(__NR_arch_prctl)  // Not defined for every CPU architecture
   builder.AllowSyscall(__NR_arch_prctl);
+#endif
 }
 
 std::unique_ptr<sandbox2::Policy> MakePolicy() {

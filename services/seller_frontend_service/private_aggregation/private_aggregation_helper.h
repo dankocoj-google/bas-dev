@@ -123,8 +123,8 @@ absl::StatusOr<PrivateAggregateReportingResponses> CborDecodePAggResponse(
 void HandlePrivateAggregationContributionsForGhostWinner(
     const absl::flat_hash_map<InterestGroupIdentity, int>&
         interest_group_index_map,
-    ScoreAdsResponse::AdScore& ghost_winning_score,
-    BuyerBidsResponseMap& shared_buyer_bids_map);
+    const BuyerBidsResponseMap& shared_buyer_bids_map,
+    ScoreAdsResponse::AdScore& ghost_winning_score);
 
 }  // namespace privacy_sandbox::bidding_auction_servers
 

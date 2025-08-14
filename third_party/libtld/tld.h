@@ -1,0 +1,248 @@
+/* TLD library -- TLD, domain name, and sub-domain extraction
+ * Copyright (c) 2011-2022  Made to Order Software Corp.  All Rights Reserved
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+#ifndef LIB_TLD_H
+#define LIB_TLD_H
+/** \file
+ * \brief The public header of the libtld library.
+ *
+ * This file declares all the functions, objects, structures, etc. publicly
+ * available from the libtld library.
+ */
+
+#if ( defined(LIBTLD_DLL) || defined(_WINDLL) ) && ( defined(_WINDOWS) || defined(WINDOWS) )
+#ifdef tld_EXPORTS
+#define LIBTLD_EXPORT __declspec(dllexport)
+#else
+#define LIBTLD_EXPORT __declspec(dllimport)
+#endif
+#else
+#define LIBTLD_EXPORT
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define LIBTLD_VERSION_MAJOR    2
+#define LIBTLD_VERSION_MINOR    0
+#define LIBTLD_VERSION_PATCH    5
+#define LIBTLD_VERSION          "2.0.5"
+
+// use tags instead
+enum tld_category
+{
+    TLD_CATEGORY_INTERNATIONAL,
+    TLD_CATEGORY_PROFESSIONALS,
+    TLD_CATEGORY_LANGUAGE,
+    TLD_CATEGORY_GROUP,
+    TLD_CATEGORY_REGION,
+    TLD_CATEGORY_TECHNICAL,
+    TLD_CATEGORY_COUNTRY,   // TODO: remove: TLD_CATEGORY_LOCATION + TLD_REGION_COUNTRY 
+    TLD_CATEGORY_LOCATION,
+    TLD_CATEGORY_ENTREPRENEURIAL,
+    TLD_CATEGORY_BRAND,
+    TLD_CATEGORY_UNDEFINED
+};
+
+enum tld_status
+{
+    TLD_STATUS_VALID,
+    TLD_STATUS_PROPOSED,
+    TLD_STATUS_DEPRECATED,
+    TLD_STATUS_UNUSED,
+    TLD_STATUS_RESERVED,
+    TLD_STATUS_INFRASTRUCTURE,
+    TLD_STATUS_EXAMPLE,
+    TLD_STATUS_UNDEFINED,
+
+    /* The following status is never returned. It is used internally to handle
+     * exceptions (i.e. usually 2nd level domain names that should not be.)
+     */
+    TLD_STATUS_EXCEPTION = 100
+};
+
+enum tld_result
+{
+    TLD_RESULT_SUCCESS,
+    TLD_RESULT_INVALID,   /* TLD not acceptable (reserved, deprecated, etc.) */
+    TLD_RESULT_NULL,      /* URI is a NULL pointer */
+    TLD_RESULT_NO_TLD,    /* no '.' in the URI */
+    TLD_RESULT_BAD_URI,   /* URI includes two '.' one after another or some other problem */
+    TLD_RESULT_NOT_FOUND
+};
+
+struct tld_info
+{
+    enum tld_category   f_category;
+    enum tld_status     f_status;
+    char                f_country[48];  /* current longest is "South Georgia and the South Sandwich Islands" */
+    const char *        f_tld; /* pointer within your URI string */
+    int                 f_offset;
+    int                 f_tld_index;
+};
+
+struct tld_tag_definition
+{
+    const char *        f_name;
+    int                 f_name_length;
+    const char *        f_value;
+    int                 f_value_length;
+};
+
+#define VALID_URI_ASCII_ONLY  0x0001
+#define VALID_URI_NO_SPACES   0x0002
+
+
+extern LIBTLD_EXPORT const char *tld_version();
+
+
+extern LIBTLD_EXPORT void               tld_clear_info(struct tld_info *info);
+extern LIBTLD_EXPORT enum tld_result    tld(const char *uri, struct tld_info *info);
+extern LIBTLD_EXPORT enum tld_result    tld_load_tlds(const char *filename, int fallback);
+extern LIBTLD_EXPORT void               tld_free_tlds();
+extern LIBTLD_EXPORT enum tld_result    tld_check_uri(const char *uri, struct tld_info *info, const char *protocols, int flags);
+extern LIBTLD_EXPORT char *             tld_domain_to_lowercase(const char *domain);
+extern LIBTLD_EXPORT int                tld_tag_count(struct tld_info *info);
+extern LIBTLD_EXPORT enum tld_result    tld_get_tag(struct tld_info *info, int tag_idx, struct tld_tag_definition *tag);
+extern LIBTLD_EXPORT const char *       tld_status_to_string(enum tld_status status);
+extern LIBTLD_EXPORT enum tld_category  tld_word_to_category(const char *word, int n);
+
+
+
+struct tld_email
+{
+    const char *        f_group;
+    const char *        f_original_email;
+    const char *        f_fullname;
+    const char *        f_username;
+    const char *        f_domain;
+    const char *        f_email_only;
+    const char *        f_canonicalized_email;
+};
+
+enum tld_email_field_type
+{
+    TLD_EMAIL_FIELD_TYPE_INVALID = -1,
+    TLD_EMAIL_FIELD_TYPE_UNKNOWN,
+    TLD_EMAIL_FIELD_TYPE_MAILBOX_LIST,
+    TLD_EMAIL_FIELD_TYPE_MAILBOX,
+    TLD_EMAIL_FIELD_TYPE_ADDRESS_LIST,
+    TLD_EMAIL_FIELD_TYPE_ADDRESS_LIST_OPT
+};
+
+struct tld_email_list;
+
+extern LIBTLD_EXPORT struct tld_email_list *tld_email_alloc();
+extern LIBTLD_EXPORT void tld_email_free(struct tld_email_list *list);
+extern LIBTLD_EXPORT enum tld_result tld_email_parse(struct tld_email_list *list, const char *emails, int flags);
+extern LIBTLD_EXPORT int tld_email_count(struct tld_email_list *list);
+extern LIBTLD_EXPORT void tld_email_rewind(struct tld_email_list *list);
+extern LIBTLD_EXPORT int tld_email_next(struct tld_email_list *list, struct tld_email *e);
+
+
+#ifdef __cplusplus
+}
+#endif
+
+#ifdef __cplusplus
+/* For C++ users */
+#include    <string>
+#include    <vector>
+#include    <stdexcept>
+
+
+struct invalid_domain : public std::runtime_error
+{
+    invalid_domain(const char *what_str = "this tld object is not currently valid") : runtime_error(what_str) {}
+};
+
+
+class LIBTLD_EXPORT tld_object
+{
+public:
+    tld_object(const char *domain_name = NULL);
+    tld_object(const std::string& domain_name);
+    void set_domain(const char *domain_name);
+    void set_domain(const std::string& domain_name);
+    tld_result result() const;
+    tld_status status() const;
+    bool is_valid() const;
+    std::string domain() const;
+    std::string sub_domains() const;
+    std::string full_domain() const;
+    std::string domain_only() const;
+    std::string tld_only() const;
+    tld_category category() const;
+    std::string country() const;
+private:
+    std::string f_domain = std::string();
+    tld_info    f_info   = tld_info();
+    tld_result  f_result = TLD_RESULT_INVALID;
+};
+
+
+struct LIBTLD_EXPORT tld_email_list
+{
+public:
+    struct tld_email_t
+    {
+        tld_result parse(const std::string& email);
+        tld_result parse_group(const std::string& group);
+
+        std::string         f_group               = std::string();
+        std::string         f_original_email      = std::string();
+        std::string         f_fullname            = std::string();
+        std::string         f_username            = std::string();
+        std::string         f_domain              = std::string();
+        std::string         f_email_only          = std::string();
+        std::string         f_canonicalized_email = std::string();
+    };
+    typedef std::vector<tld_email_t>      tld_email_list_t;
+
+    tld_email_list();
+    tld_result parse(const std::string& emails, int flags);
+    static std::string quote_string(const std::string& name, char quote);
+    int count() const;
+    void rewind() const;
+    bool next(tld_email_t& e) const;
+    bool next(tld_email *e) const;
+
+    static tld_email_field_type email_field_type(const std::string& name);
+
+private:
+    void parse_all_emails();
+
+    std::string         f_input      = std::string();
+    int                 f_flags      = 0;
+    tld_result          f_result     = TLD_RESULT_INVALID;
+    std::string         f_last_group = std::string();
+    mutable int         f_pos        = 0;
+    tld_email_list_t    f_email_list = tld_email_list_t();
+};
+#endif
+/*#ifdef __cplusplus*/
+
+#endif
+/*#ifndef LIB_TLD_H*/
+/* vim: ts=4 sw=4 et
+ */

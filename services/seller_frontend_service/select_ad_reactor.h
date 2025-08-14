@@ -119,7 +119,8 @@ class SelectAdReactor : public grpc::ServerUnaryReactor {
       bool enable_cancellation = false, bool enable_kanon = false,
       bool enable_buyer_private_aggregate_reporting = false,
       int per_adtech_paapi_contributions_limit = 0, bool fail_fast = true,
-      int max_buyers_solicited = metric::kMaxBuyersSolicited);
+      int max_buyers_solicited = metric::kMaxBuyersSolicited,
+      CompressionType sfe_bfe_compression_algo = CompressionType::kGzip);
 
   // Initiate the asynchronous execution of the SelectAdRequest.
   virtual void Execute();
@@ -572,8 +573,6 @@ class SelectAdReactor : public grpc::ServerUnaryReactor {
   // flagged as an error eventually.
   AsyncTaskTracker async_task_tracker_;
 
-  absl::string_view k_anon_api_key_;
-
   bool perform_scoring_signals_fetch_;
 
   // Tracks the completion of scoring signals fetching and k-anon queries.
@@ -595,6 +594,9 @@ class SelectAdReactor : public grpc::ServerUnaryReactor {
 
   // Should the debug data be exported based on reply from auction
   bool should_export_debug_ = false;
+
+  // Compression algorithm used between SFE and BFE.
+  CompressionType sfe_bfe_compression_algo_;
 
   // Convenient class to time and report latency metric for the given metric
   // type to given metric context.

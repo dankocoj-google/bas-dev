@@ -40,7 +40,7 @@ variable "namespace" {
 variable "otel_image" {
   description = "OTel Image Version"
   type        = string
-  default     = "otel/opentelemetry-collector-contrib:latest"
+  default     = "otel/opentelemetry-collector-contrib:0.105.0"
 }
 
 variable "otel_grpc_port" {

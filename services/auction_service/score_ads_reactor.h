@@ -36,6 +36,7 @@
 #include "services/auction_service/data/runtime_config.h"
 #include "services/auction_service/reporting/reporting_helper.h"
 #include "services/auction_service/reporting/reporting_response.h"
+#include "services/common/attestation/adtech_enrollment_cache.h"
 #include "services/common/clients/code_dispatcher/request_context.h"
 #include "services/common/clients/code_dispatcher/v8_dispatch_client.h"
 #include "services/common/code_dispatch/code_dispatch_reactor.h"
@@ -139,7 +140,8 @@ class ScoreAdsReactor
       server_common::KeyFetcherManagerInterface* key_fetcher_manager,
       CryptoClientWrapperInterface* crypto_client,
       const AsyncReporter& async_reporter,
-      const AuctionServiceRuntimeConfig& runtime_config);
+      const AuctionServiceRuntimeConfig& runtime_config,
+      AdtechEnrollmentCacheInterface* adtech_attestation_cache = nullptr);
 
   // Initiates the asynchronous execution of the ScoreAdsRequest.
   void Execute() override;
@@ -429,6 +431,9 @@ class ScoreAdsReactor
                               const std::vector<ScoredAdData>& parsed_responses,
                               absl::string_view id);
 
+  // Attest fDO destinations against API enrollment list.
+  void AttestDebugUrls();
+
   CLASS_CANCELLATION_WRAPPER(ReportResultCallback, enable_cancellation_,
                              context_, FinishWithStatus)
 
@@ -468,7 +473,7 @@ class ScoreAdsReactor
   std::unique_ptr<ScoreAdsBenchmarkingLogger> benchmarking_logger_;
   const AsyncReporter& async_reporter_;
   bool enable_seller_debug_url_generation_;
-  std::string roma_timeout_ms_;
+  std::string roma_timeout_duration_;
   RequestLogContext log_context_;
   RomaRequestContextFactory roma_request_context_factory_;
 
@@ -524,6 +529,7 @@ class ScoreAdsReactor
   absl::flat_hash_set<std::string>
       protected_app_signals_buyers_with_report_win_enabled_;
   std::string winning_ad_dispatch_id_;
+  AdtechEnrollmentCacheInterface* adtech_attestation_cache_;
 };
 }  // namespace privacy_sandbox::bidding_auction_servers
 #endif  // SERVICES_AUCTION_SERVICE_SCORE_ADS_REACTOR_H_

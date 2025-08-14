@@ -14,13 +14,14 @@
 
 #include "pytorch.h"
 
-#include <gmock/gmock-matchers.h>
-
+#include <future>
 #include <istream>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
+#include <google/protobuf/empty.pb.h>
 #include <torch/script.h>
 
 #include "absl/status/status.h"
@@ -28,11 +29,22 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/synchronization/blocking_counter.h"
+#include "absl/synchronization/notification.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "gmock/gmock-matchers.h"
+#include "grpcpp/alarm.h"
+#include "grpcpp/generic/async_generic_service.h"
+#include "grpcpp/generic/generic_stub.h"
+#include "grpcpp/grpcpp.h"
+#include "grpcpp/server_context.h"
+#include "grpcpp/support/byte_buffer.h"
+#include "grpcpp/support/proto_buffer_writer.h"
+#include "grpcpp/support/slice.h"
 #include "gtest/gtest.h"
 #include "model/model_store.h"
 #include "modules/module_interface.h"
+#include "proto/inference_sidecar.grpc.pb.h"
 #include "proto/inference_sidecar.pb.h"
 #include "utils/file_util.h"
 #include "utils/inference_metric_util.h"
@@ -55,6 +67,42 @@ constexpr absl::string_view kStatefulModel = "stateful_model";
 constexpr absl::string_view kUnfreezableModel = "unfreezable_model";
 constexpr absl::string_view kFrozenModel = "frozen_model";
 constexpr int kNumThreads = 100;
+
+TEST(PyTorchCancellationTest, Failure_RegisterModelWithCancelledContext) {
+  InferenceSidecarRuntimeConfig config;
+  std::unique_ptr<ModuleInterface> torch_module =
+      ModuleInterface::Create(config);
+  RegisterModelRequest register_request;
+  MockCancellableContext cancelled_context{true};
+  absl::StatusOr<RegisterModelResponse> status =
+      torch_module->RegisterModel(register_request, cancelled_context);
+  ASSERT_FALSE(status.ok());
+  EXPECT_EQ(status.status().code(), absl::StatusCode::kCancelled);
+}
+
+TEST(PyTorchCancellationTest, Failure_DeleteModelWithCancelledContext) {
+  InferenceSidecarRuntimeConfig config;
+  std::unique_ptr<ModuleInterface> torch_module =
+      ModuleInterface::Create(config);
+  DeleteModelRequest delete_request;
+  MockCancellableContext cancelled_context{true};
+  absl::StatusOr<DeleteModelResponse> status =
+      torch_module->DeleteModel(delete_request, cancelled_context);
+  ASSERT_FALSE(status.ok());
+  EXPECT_EQ(status.status().code(), absl::StatusCode::kCancelled);
+}
+
+TEST(PyTorchCancellationTest, Failure_PredictWithCancelledContext) {
+  InferenceSidecarRuntimeConfig config;
+  std::unique_ptr<ModuleInterface> torch_module =
+      ModuleInterface::Create(config);
+  PredictRequest predict_request;
+  MockCancellableContext cancelled_context{true};
+  absl::StatusOr<PredictResponse> status = torch_module->Predict(
+      predict_request, RequestContext(), cancelled_context);
+  ASSERT_FALSE(status.ok());
+  EXPECT_EQ(status.status().code(), absl::StatusCode::kCancelled);
+}
 
 TEST(PyTorchModuleRuntimeConfigTest,
      RuntimeConfigInitializationSucceeds_Empty) {

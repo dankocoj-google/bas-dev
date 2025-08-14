@@ -29,6 +29,7 @@ resource "azurerm_kubernetes_cluster" "aks" {
     node_count           = 2
     vm_size              = "Standard_D4ds_v4"
     vnet_subnet_id       = var.aks_subnet_id
+    zones                = var.availability_zones
     auto_scaling_enabled = true
     min_count            = 2
     max_count            = var.autoscaling_max_node_count
@@ -57,11 +58,9 @@ resource "azurerm_kubernetes_cluster" "aks" {
     msi_auth_for_monitoring_enabled = true
     log_analytics_workspace_id      = var.monitor_workspace_id
   }
-}
 
-resource "kubernetes_namespace" "namespace" {
-  count = var.namespace == "default" ? 0 : 1
-  metadata {
-    name = var.namespace
+  monitor_metrics {
+    annotations_allowed = null
+    labels_allowed      = null
   }
 }

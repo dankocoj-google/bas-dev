@@ -1,20 +1,21 @@
-//  Copyright 2023 Google LLC
+// Copyright 2023 Google LLC
 //
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//       http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include "services/bidding_service/inference/inference_utils.h"
 
 #include <fstream>
+#include <future>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -22,17 +23,15 @@
 #include <utility>
 #include <vector>
 
-#include <grpcpp/grpcpp.h>
-#include <grpcpp/server_context.h>
-#include <grpcpp/server_posix.h>
-
 #include "absl/base/const_init.h"
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
+#include "proto/inference_payload.pb.h"
 #include "proto/inference_sidecar.grpc.pb.h"
 #include "rapidjson/document.h"
 #include "rapidjson/error/en.h"
@@ -49,6 +48,8 @@
 #include "utils/error.h"
 #include "utils/file_util.h"
 #include "utils/inference_error_code.h"
+#include "utils/inference_metric_util.h"
+#include "utils/request_proto_parser.h"
 
 namespace privacy_sandbox::bidding_auction_servers::inference {
 
@@ -154,6 +155,36 @@ std::unique_ptr<InferenceService::StubInterface> CreateInferenceStub() {
   return InferenceService::NewStub(InferenceChannel(Executor()));
 }
 
+absl::Status RegisterModelFromLocalInternal(
+    const std::vector<std::string>& paths,
+    InferenceService::StubInterface& stub) {
+  std::optional<std::int64_t> timeout =
+      absl::GetFlag(FLAGS_inference_model_registration_timeout_ms);
+  for (const auto& path : paths) {
+    RegisterModelRequest register_request;
+    PS_RETURN_IF_ERROR(PopulateRegisterModelRequest(path, register_request));
+    grpc::ClientContext context;
+    SetClientDeadline(timeout, context);
+    RegisterModelResponse register_response;
+    grpc::Status status;
+    std::promise<void> promise;
+    auto future = promise.get_future();
+
+    stub.async()->RegisterModel(
+        &context, &register_request, &register_response,
+        [&status, &promise](const grpc::Status& rpc_status) {
+          status = rpc_status;
+          promise.set_value();
+        });
+    future.wait();
+
+    if (!status.ok()) {
+      return server_common::ToAbslStatus(status);
+    }
+  }
+  return absl::OkStatus();
+}
+
 absl::Status RegisterModelsFromLocal(const std::vector<std::string>& paths) {
   if (paths.size() == 0 || (paths.size() == 1 && paths[0].empty())) {
     return absl::NotFoundError("No model to register in local disk");
@@ -162,19 +193,49 @@ absl::Status RegisterModelsFromLocal(const std::vector<std::string>& paths) {
   SandboxExecutor& executor = Executor();
   std::unique_ptr<InferenceService::StubInterface> stub =
       InferenceService::NewStub(InferenceChannel(executor));
+  return RegisterModelFromLocalInternal(paths, *stub);
+}
 
-  for (const auto& path : paths) {
-    RegisterModelRequest register_request;
-    PS_RETURN_IF_ERROR(PopulateRegisterModelRequest(path, register_request));
+absl::Status RegisterModelFromBucketInternal(
+    absl::string_view bucket_name, const std::vector<std::string>& paths,
+    const std::vector<BlobFetcher::Blob>& blobs,
+    InferenceService::StubInterface& stub) {
+  std::optional<std::int64_t> timeout =
+      absl::GetFlag(FLAGS_inference_model_registration_timeout_ms);
+
+  for (const auto& model_path : paths) {
+    RegisterModelRequest request;
+    request.mutable_model_spec()->set_model_path(model_path);
+    PS_VLOG(10) << "model_path: " << model_path;
+
+    for (const BlobFetcher::Blob& blob : blobs) {
+      if (absl::StartsWith(blob.path, model_path)) {
+        (*request.mutable_model_files())[blob.path] = blob.bytes;
+        PS_VLOG(10) << "model_files: " << blob.path;
+      }
+    }
+
     grpc::ClientContext context;
-    RegisterModelResponse register_response;
-    grpc::Status status =
-        stub->RegisterModel(&context, register_request, &register_response);
+    SetClientDeadline(timeout, context);
+    RegisterModelResponse response;
+    grpc::Status status;
+    std::promise<void> promise;
+    auto future = promise.get_future();
+
+    stub.async()->RegisterModel(
+        &context, &request, &response,
+        [&status, &promise](const grpc::Status& rpc_status) {
+          status = rpc_status;
+          promise.set_value();
+        });
+    future.wait();
 
     if (!status.ok()) {
       return server_common::ToAbslStatus(status);
     }
   }
+  // TODO(b/316960066): Handles register models response once the proto has been
+  // fleshed out.
   return absl::OkStatus();
 }
 
@@ -193,44 +254,121 @@ absl::Status RegisterModelsFromBucket(
   std::unique_ptr<InferenceService::StubInterface> stub =
       InferenceService::NewStub(InferenceChannel(executor));
 
-  for (const auto& model_path : paths) {
-    RegisterModelRequest request;
-    request.mutable_model_spec()->set_model_path(model_path);
-    PS_VLOG(10) << "model_path: " << model_path;
-
-    for (const BlobFetcher::Blob& blob : blobs) {
-      if (absl::StartsWith(blob.path, model_path)) {
-        (*request.mutable_model_files())[blob.path] = blob.bytes;
-        PS_VLOG(10) << "model_files: " << blob.path;
-      }
-    }
-
-    grpc::ClientContext context;
-    RegisterModelResponse response;
-    grpc::Status status = stub->RegisterModel(&context, request, &response);
-
-    if (!status.ok()) {
-      return server_common::ToAbslStatus(status);
-    }
-  }
-  // TODO(b/316960066): Handles register models response once the proto has been
-  // fleshed out.
-  return absl::OkStatus();
+  return RegisterModelFromBucketInternal(bucket_name, paths, blobs, *stub);
 }
 
-void RunInference(
+bool InferenceUseProto() {
+  static bool inference_use_proto =
+      absl::GetFlag(FLAGS_inference_enable_proto_parsing);
+  return inference_use_proto;
+}
+
+inline void SetBatchErrorString(
     google::scp::roma::FunctionBindingPayload<RomaRequestSharedContext>&
-        wrapper) {
-  absl::Time start_inference_execution_time = absl::Now();
+        wrapper,
+    Error::ErrorType type, absl::string_view description) {
+  wrapper.io_proto.set_output_string(CreateBatchErrorString(
+      Error{.error_type = type, .description = std::string(description)}));
+}
+
+void HandlePredictResponse(
+    google::scp::roma::FunctionBindingPayload<RomaRequestSharedContext>&
+        wrapper,
+    const PredictResponse& predict_response,
+    const BatchOrderedInferenceErrorResponse& parsing_errors,
+    const absl::StatusOr<std::shared_ptr<RomaRequestContext>>&
+        roma_request_context,
+    const grpc::Status& rpc_status, std::promise<void>& promise) {
+  wrapper.metadata.ReportRPCFinish();
+
+  // Handle the gRPC call result.
+  if (rpc_status.ok()) {
+    if (InferenceUseProto()) {
+      absl::StatusOr<BatchInferenceResponse> merged_result =
+          MergeBatchResponse(predict_response.proto_output(), parsing_errors);
+      if (merged_result.ok()) {
+        absl::StatusOr<std::string> output_json =
+            ConvertProtoToJson(merged_result.value());
+        if (output_json.ok()) {
+          wrapper.io_proto.set_output_string(output_json.value());
+        } else {
+          SetBatchErrorString(wrapper, Error::OUTPUT_PARSING,
+                              output_json.status().message());
+        }
+      } else {
+        SetBatchErrorString(wrapper, Error::OUTPUT_PARSING,
+                            merged_result.status().message());
+      }
+    } else {  // rpc_status.ok() && !InferenceUseProto()
+      wrapper.io_proto.set_output_string(predict_response.output());
+    }
+    if (roma_request_context.ok()) {
+      RequestLogContext& log_context = (*roma_request_context)->GetLogContext();
+
+      PS_VLOG(kNoisyInfo, log_context) << "PredictResponse with debugging log: "
+                                       << predict_response.DebugString();
+
+      if (auto inference_metric_context =
+              (*roma_request_context)->GetMetricContext();
+          inference_metric_context.ok()) {
+        metric::BiddingContext* context =
+            std::get<metric::BiddingContext*>(*inference_metric_context);
+        LogMetrics(predict_response.metrics_list(), context, log_context);
+      }
+    } else {
+      PS_VLOG(kNoisyInfo) << "No Roma context. PredictResponse: "
+                          << predict_response.DebugString();
+    }
+  } else {
+    // Handle RPC error case.
+    absl::Status status = server_common::ToAbslStatus(rpc_status);
+    SetBatchErrorString(
+        wrapper, Error::GRPC,
+        absl::StrCat("Code: ", status.code(), ", Message: ", status.message()));
+
+    if (roma_request_context.ok()) {
+      PS_VLOG(kNoisyInfo) << "PredictResponse error: " << status;
+      if (auto inference_metric_context =
+              (*roma_request_context)->GetMetricContext();
+          inference_metric_context.ok()) {
+        metric::BiddingContext* context =
+            std::get<metric::BiddingContext*>(*inference_metric_context);
+        LogIfError(context->AccumulateMetric<
+                   metric::kInferenceRequestFailedCountByStatus>(
+            1, StatusCodeToString(status.code())));
+      }
+    }
+  }
+  promise.set_value();
+}
+
+void RunInferenceInternal(google::scp::roma::FunctionBindingPayload<
+                              RomaRequestSharedContext>& wrapper,
+                          InferenceService::StubInterface& stub) {
+  // Parse input and prepare the request object.
   const std::string& payload = wrapper.io_proto.input_string();
-
-  SandboxExecutor& executor = Executor();
-  std::unique_ptr<InferenceService::StubInterface> stub =
-      InferenceService::NewStub(InferenceChannel(executor));
-
   PredictRequest predict_request;
-  predict_request.set_input(payload);
+  PS_VLOG(10) << "FLAGS_inference_enable_proto_parsing: "
+              << InferenceUseProto();
 
+  PredictResponse predict_response;
+  BatchOrderedInferenceErrorResponse parsing_errors;
+  if (InferenceUseProto()) {
+    absl::StatusOr<BatchInferenceRequest> parsed_requests =
+        ConvertJsonToProto(payload, parsing_errors);
+    if (!parsed_requests.ok()) {
+      AddMetric(predict_response, "kInferenceErrorCountByErrorCode", 1,
+                std::string(kInferenceUnableToParseRequest));
+      SetBatchErrorString(wrapper, Error::INPUT_PARSING,
+                          parsed_requests.status().message());
+      return;
+    }
+    *predict_request.mutable_proto_input() = *std::move(parsed_requests);
+  } else {
+    predict_request.set_input(payload);
+  }
+
+  // Fetch context and enrich the request.
   absl::StatusOr<std::shared_ptr<RomaRequestContext>> roma_request_context =
       wrapper.metadata.GetRomaRequestContext();
 
@@ -244,57 +382,66 @@ void RunInference(
                         << predict_request.DebugString();
   }
 
-  grpc::ClientContext context;
-  PredictResponse predict_response;
-  grpc::Status rpc_status =
-      stub->Predict(&context, predict_request, &predict_response);
-  if (rpc_status.ok()) {
-    wrapper.io_proto.set_output_string(predict_response.output());
-    if (roma_request_context.ok()) {
-      RequestLogContext& log_context = (*roma_request_context)->GetLogContext();
-
-      PS_VLOG(kNoisyInfo, log_context) << "PredictResponse with debugging log: "
-                                       << predict_response.DebugString();
-
-      if (auto inference_metric_context =
-              (*roma_request_context)->GetMetricContext();
-          inference_metric_context.ok()) {
-        metric::BiddingContext* context =
-            std::get<metric::BiddingContext*>(*inference_metric_context);
-        LogMetrics(predict_response.metrics_list(), context, log_context);
-        int inference_execution_time_ms =
-            (absl::Now() - start_inference_execution_time) /
-            absl::Milliseconds(1);
-        LogIfError(
-            context->AccumulateMetric<metric::kBiddingInferenceRequestDuration>(
-                inference_execution_time_ms));
-      }
+  // Set up and make the gRPC call.
+  absl::StatusOr<std::shared_ptr<grpc::ClientContext>> context =
+      wrapper.metadata.GetCancellableClientContext(
+          absl::GetFlag(FLAGS_inference_model_execution_timeout_ms));
+  if (!context.ok()) {
+    // For backwards compatibility.
+    if (absl::IsNotFound(context.status())) {
+      context = std::make_shared<grpc::ClientContext>();
     } else {
-      PS_VLOG(kNoisyInfo) << "No Roma context. PredictResponse: "
-                          << predict_response.DebugString();
+      SetBatchErrorString(wrapper, Error::GRPC,
+                          "Failed to get gRPC ClientContext from "
+                          "CancellableGrpcContextManager");
+      return;
     }
+  }
+
+  std::promise<void> promise;
+  auto future = promise.get_future();
+
+  stub.async()->Predict((*context).get(), &predict_request, &predict_response,
+                        [&](const grpc::Status& rpc_status) {
+                          HandlePredictResponse(
+                              wrapper, predict_response, parsing_errors,
+                              roma_request_context, rpc_status, promise);
+                        });
+
+  future.wait();
+}
+
+void RunInference(
+    google::scp::roma::FunctionBindingPayload<RomaRequestSharedContext>&
+        wrapper) {
+  absl::Time start_inference_execution_time = absl::Now();
+
+  // Create the gRPC stub resource.
+  SandboxExecutor& executor = Executor();
+  std::unique_ptr<InferenceService::StubInterface> stub =
+      InferenceService::NewStub(InferenceChannel(executor));
+
+  // Delegate all core logic to the internal function.
+  RunInferenceInternal(wrapper, *stub);
+
+  absl::StatusOr<std::shared_ptr<RomaRequestContext>> roma_request_context =
+      wrapper.metadata.GetRomaRequestContext();
+  if (!roma_request_context.ok()) {
     return;
   }
-  absl::Status status = server_common::ToAbslStatus(rpc_status);
-  wrapper.io_proto.set_output_string(CreateBatchErrorString(
-      {.error_type = Error::GRPC,
-       .description = absl::StrCat("Code: ", status.code(),
-                                   ", Message: ", status.message())}));
-  if (roma_request_context.ok()) {
-    RequestLogContext& log_context = (*roma_request_context)->GetLogContext();
-    PS_LOG(ERROR, log_context) << "PredictResponse error: " << status.message();
 
-    if (auto inference_metric_context =
-            (*roma_request_context)->GetMetricContext();
-        inference_metric_context.ok()) {
-      metric::BiddingContext* context =
-          std::get<metric::BiddingContext*>(*inference_metric_context);
-      LogIfError(
-          context
-              ->AccumulateMetric<metric::kInferenceRequestFailedCountByStatus>(
-                  1, StatusCodeToString(status.code())));
-    }
+  auto inference_metric_context = (*roma_request_context)->GetMetricContext();
+  if (!inference_metric_context.ok()) {
+    return;
   }
+
+  metric::BiddingContext* context =
+      std::get<metric::BiddingContext*>(*inference_metric_context);
+  int inference_execution_time_ms =
+      (absl::Now() - start_inference_execution_time) / absl::Milliseconds(1);
+  LogIfError(
+      context->AccumulateMetric<metric::kBiddingInferenceRequestDuration>(
+          inference_execution_time_ms));
 }
 
 std::string GetModelResponseToJson(const GetModelPathsResponse& response) {
@@ -316,6 +463,52 @@ std::string GetModelResponseToJson(const GetModelPathsResponse& response) {
   return strbuf.GetString();
 }
 
+void GetModelPathsInternal(google::scp::roma::FunctionBindingPayload<
+                               RomaRequestSharedContext>& wrapper,
+                           InferenceService::StubInterface& stub) {
+  PS_VLOG(kNoisyInfo) << "GetModelPaths called";
+  GetModelPathsRequest get_model_paths_request;
+
+  // Set up and make the gRPC call.
+  absl::StatusOr<std::shared_ptr<grpc::ClientContext>> context =
+      wrapper.metadata.GetCancellableClientContext(
+          absl::GetFlag(FLAGS_inference_model_execution_timeout_ms));
+  if (!context.ok()) {
+    // For backwards compatibility
+    if (absl::IsNotFound(context.status())) {
+      context = std::make_shared<grpc::ClientContext>();
+    } else {
+      SetBatchErrorString(wrapper, Error::GRPC,
+                          "Failed to get gRPC ClientContext from "
+                          "CancellableGrpcContextManager");
+      return;
+    }
+  }
+
+  GetModelPathsResponse get_model_paths_response;
+  std::promise<void> promise;
+  auto future = promise.get_future();
+
+  stub.async()->GetModelPaths(
+      (*context).get(), &get_model_paths_request, &get_model_paths_response,
+      [&wrapper, &get_model_paths_response,
+       &promise](const grpc::Status& rpc_status) {
+        wrapper.metadata.ReportRPCFinish();
+        if (rpc_status.ok()) {
+          wrapper.io_proto.set_output_string(
+              GetModelResponseToJson(get_model_paths_response));
+          PS_VLOG(10) << "GetModelPaths response received: "
+                      << get_model_paths_response.DebugString();
+        } else {
+          absl::Status status = server_common::ToAbslStatus(rpc_status);
+          PS_LOG(ERROR, SystemLogContext())
+              << "GetModelPaths response error: " << status.message();
+        }
+        promise.set_value();
+      });
+  future.wait();
+}
+
 void GetModelPaths(
     google::scp::roma::FunctionBindingPayload<RomaRequestSharedContext>&
         wrapper) {
@@ -323,24 +516,7 @@ void GetModelPaths(
   std::unique_ptr<InferenceService::StubInterface> stub =
       InferenceService::NewStub(InferenceChannel(executor));
 
-  PS_VLOG(kNoisyInfo) << "GetModelPaths called";
-  GetModelPathsRequest get_model_paths_request;
-
-  grpc::ClientContext context;
-  GetModelPathsResponse get_model_paths_response;
-  grpc::Status rpc_status = stub->GetModelPaths(
-      &context, get_model_paths_request, &get_model_paths_response);
-  if (rpc_status.ok()) {
-    wrapper.io_proto.set_output_string(
-        GetModelResponseToJson(get_model_paths_response));
-    PS_VLOG(10) << "GetModelPaths response received: "
-                << get_model_paths_response.DebugString();
-    return;
-  }
-
-  absl::Status status = server_common::ToAbslStatus(rpc_status);
-  PS_LOG(ERROR, SystemLogContext())
-      << "GetModelPaths response error: " << status.message();
+  GetModelPathsInternal(wrapper, *stub);
 }
 
 }  // namespace privacy_sandbox::bidding_auction_servers::inference

@@ -43,6 +43,8 @@
 #include "services/auction_service/runtime_flags.h"
 #include "services/auction_service/udf_fetcher/auction_code_fetch_config.pb.h"
 #include "services/auction_service/udf_fetcher/seller_udf_fetch_manager.h"
+#include "services/common/attestation/adtech_enrollment_cache.h"
+#include "services/common/attestation/adtech_enrollment_fetcher.h"
 #include "services/common/clients/config/trusted_server_config_client.h"
 #include "services/common/clients/config/trusted_server_config_client_util.h"
 #include "services/common/clients/http/multi_curl_http_fetcher_async_no_queue.h"
@@ -103,6 +105,9 @@ ABSL_FLAG(std::optional<int>, curl_auction_queue_max_wait_ms, 1000,
 ABSL_FLAG(std::optional<int>, curl_auction_work_queue_length, 5000,
           "Maximum number of outstanding curl requests that are allowed to "
           "wait for processing");
+ABSL_FLAG(std::optional<bool>, enable_fdo_attestation, true,
+          "If true, fDO destinations given by AdTechs are attested against API "
+          "enrollment list.");
 
 namespace privacy_sandbox::bidding_auction_servers {
 
@@ -131,7 +136,8 @@ class ScoreAdsReactorCreator {
       ScoreAdsResponse* response,
       server_common::KeyFetcherManagerInterface* key_fetcher_manager,
       CryptoClientWrapperInterface* crypto_client,
-      const AuctionServiceRuntimeConfig& runtime_config) {
+      const AuctionServiceRuntimeConfig& runtime_config,
+      AdtechEnrollmentCacheInterface* adtech_attestation_cache) {
     std::unique_ptr<ScoreAdsBenchmarkingLogger> benchmarking_logger =
         enable_auction_service_benchmark_
             ? std::make_unique<ScoreAdsBenchmarkingLogger>(
@@ -140,7 +146,7 @@ class ScoreAdsReactorCreator {
     return std::make_unique<ScoreAdsReactor>(
         context, v8_dispatch_client_, request, response,
         std::move(benchmarking_logger), key_fetcher_manager, crypto_client,
-        async_reporter_, runtime_config);
+        async_reporter_, runtime_config, adtech_attestation_cache);
   }
 
  private:
@@ -219,6 +225,7 @@ absl::StatusOr<TrustedServersConfigClient> GetConfigClient(
                         CURL_AUCTION_QUEUE_MAX_WAIT_MS);
   config_client.SetFlag(FLAGS_curl_auction_work_queue_length,
                         CURL_AUCTION_WORK_QUEUE_LENGTH);
+  config_client.SetFlag(FLAGS_enable_fdo_attestation, ENABLE_FDO_ATTESTATION);
 
   PS_RETURN_IF_ERROR(
       MaybeInitConfigClient(absl::GetFlag(FLAGS_init_config_client),
@@ -366,9 +373,25 @@ absl::Status RunServer() {
   PS_RETURN_IF_ERROR(code_fetch_manager.Init())
       << "Failed to initialize UDF fetch.";
 
+  std::unique_ptr<AdtechEnrollmentCache> attestation_cache = nullptr;
+  std::unique_ptr<AdtechEnrollmentFetcher> enrollment_fetcher = nullptr;
+  if (config_client.GetBooleanParameter(ENABLE_FDO_ATTESTATION)) {
+    attestation_cache = std::make_unique<AdtechEnrollmentCache>();
+    enrollment_fetcher = std::make_unique<AdtechEnrollmentFetcher>(
+        /* url_endpoint = */
+        "https://www.gstatic.com/privacy_sandbox/enrollment_data/"
+        "enrollments_web.binpb",
+        /* fetch_period = */ absl::Hours(24), &http_fetcher, executor.get(),
+        /* time_out_ms = */ absl::Milliseconds(10000), attestation_cache.get());
+  }
+  if (enrollment_fetcher) {
+    PS_RETURN_IF_ERROR(enrollment_fetcher->Start())
+        << "Failed to start Adtech Enrollment Fetcher for fDO attestation.";
+  }
+
   AuctionServiceRuntimeConfig runtime_config = {
       .enable_seller_debug_url_generation = enable_seller_debug_url_generation,
-      .roma_timeout_ms = absl::StrCat(
+      .roma_timeout_duration = absl::StrCat(
           config_client.GetStringParameter(ROMA_TIMEOUT_MS).data(), "ms"),
       .enable_adtech_code_logging = enable_adtech_code_logging,
       .enable_report_result_url_generation =
@@ -403,7 +426,7 @@ absl::Status RunServer() {
   AuctionService auction_service(
       absl::bind_front(&ScoreAdsReactorCreator::Create, &reactor_creator),
       CreateKeyFetcherManager(config_client, /* public_key_fetcher= */ nullptr),
-      CreateCryptoClient(), std::move(runtime_config));
+      CreateCryptoClient(), std::move(runtime_config), attestation_cache.get());
 
   PS_RETURN_IF_ERROR(
       PeriodicBucketFetcherMetrics::RegisterAuctionServiceMetrics(

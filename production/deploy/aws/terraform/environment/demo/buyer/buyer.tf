@@ -82,6 +82,12 @@ locals {
     DEBUG_SAMPLE_RATE_MICRO            = "0"
     TEST_MODE                          = "" # Example: "false"
     BUYER_CODE_FETCH_CONFIG            = "" # See README for flag descriptions
+    # Enable for tracking BYOB executions in a request as a batch.
+    # BYOB_BATCHING_CONFIG               = "" # Example: "{
+    #    "batchStartTimeoutMs": 30,
+    #    "maxPendingBatchesInPool": 100,
+    #    "useSeparateThreadpool": true,
+    #  }"
     # Example for V8:
     # "{
     #    "fetchMode": 0,
@@ -146,19 +152,25 @@ locals {
     MAX_ALLOWED_SIZE_DEBUG_URL_BYTES   = "" # Example: "65536"
     MAX_ALLOWED_SIZE_ALL_DEBUG_URLS_KB = "" # Example: "3000"
 
-    INFERENCE_SIDECAR_BINARY_PATH    = "" # Example: "/server/bin/inference_sidecar_<module_name>"
-    INFERENCE_MODEL_BUCKET_NAME      = "" # Example: "<bucket_name>"
-    INFERENCE_MODEL_CONFIG_PATH      = "" # Example: "model_config.json"
-    INFERENCE_MODEL_FETCH_PERIOD_MS  = "" # Example: "300000"
-    INFERENCE_SIDECAR_RUNTIME_CONFIG = "" # Example:
+    INFERENCE_SIDECAR_BINARY_PATH            = "" # Example: "/server/bin/inference_sidecar_<module_name>"
+    INFERENCE_MODEL_BUCKET_NAME              = "" # Example: "<bucket_name>"
+    INFERENCE_MODEL_CONFIG_PATH              = "" # Example: "model_config.json"
+    INFERENCE_MODEL_FETCH_PERIOD_MS          = "" # Example: "300000"
+    INFERENCE_SIDECAR_RUNTIME_CONFIG         = "" # Example:
+    INFERENCE_MODEL_REGISTRATION_TIMEOUT_MS  = "60000"
+    INFERENCE_MODEL_EXECUTION_TIMEOUT_MS     = "60000"
+    INFERENCE_MODEL_PATHS_REQUEST_TIMEOUT_MS = "60000"
+    INFERENCE_ENABLE_PROTO_PARSING           = false
+    INFERENCE_ENABLE_CANCELLATION_AT_BIDDING = false
     # "{
     #    "num_interop_threads": 4,
     #    "num_intraop_threads": 4,
-    #    "module_name": "tensorflow_v2_14_0",
+    #    "module_name": "tensorflow_v2_17_0",
     #    "cpuset": [0, 1, 2, 3],
     #    "tcmalloc_release_bytes_per_sec": 0,
     #    "tcmalloc_max_total_thread_cache_bytes": 0,
     #    "tcmalloc_max_per_cpu_cache_bytes": 0,
+    #    "inference_enable_cancellation_at_sidecar": false,
     # }"
 
     # TCMalloc related config parameters.
@@ -169,6 +181,7 @@ locals {
     BFE_TCMALLOC_MAX_TOTAL_THREAD_CACHE_BYTES                 = "10737418240"
 
     ENABLE_CHAFFING        = "false"
+    ENABLE_CHAFFING_V2     = "false"
     ENABLE_PRIORITY_VECTOR = "false"
     # Possible values:
     # NOT_FETCHED: No call to KV server is made. All interest groups are sent to generateBid().

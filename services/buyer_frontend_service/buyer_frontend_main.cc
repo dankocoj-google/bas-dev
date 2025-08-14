@@ -392,6 +392,14 @@ absl::Status RunServer() {
     }
   }
 
+  ChaffMedianTrackers chaff_medians;
+  if (config_client.GetBooleanParameter(ENABLE_CHAFFING_V2)) {
+    chaff_medians.request_duration = std::make_unique<MovingMedian>(
+        kChaffingV2MovingMedianWindowSize, kChaffingV2SamplingProbablility);
+    chaff_medians.response_size = std::make_unique<MovingMedian>(
+        kChaffingV2MovingMedianWindowSize, kChaffingV2SamplingProbablility);
+  }
+
   BuyerFrontEndService buyer_frontend_service(
       std::move(bidding_signals_async_providers),
       BiddingServiceClientConfig{
@@ -412,6 +420,7 @@ absl::Status RunServer() {
           config_client.GetBooleanParameter(ENABLE_PROTECTED_APP_SIGNALS),
           config_client.GetBooleanParameter(ENABLE_PROTECTED_AUDIENCE),
           config_client.GetBooleanParameter(ENABLE_CHAFFING),
+          config_client.GetBooleanParameter(ENABLE_CHAFFING_V2),
           config_client.GetBooleanParameter(ENABLE_TKV_V2_BROWSER),
           absl::GetFlag(FLAGS_enable_cancellation),
           absl::GetFlag(FLAGS_enable_kanon),
@@ -422,7 +431,7 @@ absl::Status RunServer() {
           buyer_tkv_v2_server_addr.empty(), bidding_signals_fetch_mode,
           config_client.GetBooleanParameter(PROPAGATE_BUYER_SIGNALS_TO_TKV),
           config_client.GetBooleanParameter(ENABLE_HYBRID)},
-      *executor, enable_buyer_frontend_benchmarking);
+      *executor, chaff_medians, enable_buyer_frontend_benchmarking);
 
   grpc::EnableDefaultHealthCheckService(true);
   grpc::reflection::InitProtoReflectionServerBuilderPlugin();
