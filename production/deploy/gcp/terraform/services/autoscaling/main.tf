@@ -80,6 +80,14 @@ resource "google_compute_instance_template" "frontends" {
     network    = var.vpc_id
     subnetwork = each.value.id
 
+    // Notes that this instance is a dual-stack resource.
+    stack_type = "IPV4_IPV6"
+    // Including this gives the instance an 'external' IPv6.
+    ipv6_access_config {
+      // Keeps the traffic on the GCP backbone for as long as possible.
+      network_tier = "PREMIUM"
+    }
+
     # Uncomment below to give instances external IPs:
     # access_config {
     #   network_tier = "PREMIUM"
@@ -238,6 +246,14 @@ resource "google_compute_instance_template" "backends" {
     network    = var.vpc_id
     subnetwork = each.value.id
 
+    // Notes that this instance is a dual-stack resource.
+    stack_type = "IPV4_IPV6"
+    // Including this gives the instance an 'external' IPv6.
+    ipv6_access_config {
+      // Keeps the traffic on the GCP backbone for as long as possible.
+      network_tier = "PREMIUM"
+    }
+
     # Uncomment below to give instances external IPs:
     # access_config {
     #   network_tier = "PREMIUM"
@@ -250,13 +266,16 @@ resource "google_compute_instance_template" "backends" {
     email  = var.service_account_email
     scopes = ["https://www.googleapis.com/auth/cloud-platform"]
   }
-  metadata = {
+  metadata = merge(var.backend_service_name == "bidding" ? {
+    tee-added-capabilities = "[\"CAP_SYS_ADMIN\"]"
+    tee-cgroup-ns          = true
+    } : {}, {
     mesh-name                        = var.mesh_name
     tee-image-reference              = var.backend_tee_image
     tee-container-log-redirect       = var.enable_tee_container_log_redirect
     tee-impersonate-service-accounts = var.tee_impersonate_service_accounts
     operator                         = var.operator
-  }
+  })
 
   lifecycle {
     create_before_destroy = true

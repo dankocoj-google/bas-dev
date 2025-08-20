@@ -36,6 +36,7 @@
 #include "modules/module_interface.h"
 #include "proto/inference_sidecar.pb.h"
 #include "src/util/status_macro/status_macros.h"
+#include "utils/cancellation_util.h"
 #include "utils/error.h"
 #include "utils/inference_error_code.h"
 #include "utils/inference_metric_util.h"
@@ -198,7 +199,9 @@ PyTorchModule::PyTorchModule(const InferenceSidecarRuntimeConfig& config)
 }
 
 absl::StatusOr<PredictResponse> PyTorchModule::Predict(
-    const PredictRequest& request, const RequestContext& request_context) {
+    const PredictRequest& request, const RequestContext& request_context,
+    const CancellableServerContext& server_context) {
+  RETURN_IF_CANCELLED(server_context, CancelLocation::kPredictLogic);
   PredictResponse predict_response;
   absl::Time start_inference_execution_time = absl::Now();
   AddMetric(predict_response, "kInferenceRequestSize", request.ByteSizeLong());
@@ -247,8 +250,14 @@ absl::StatusOr<PredictResponse> PyTorchModule::Predict(
         int batch_count = inference_request.inputs[0].tensor_shape[0];
         AddMetric(predict_response, "kInferenceRequestBatchCountByModel",
                   batch_count, model_key);
-        tasks[task_id] = std::async(std::launch::async, &PredictInternal,
-                                    *model, inference_request);
+        tasks[task_id] =
+            std::async(std::launch::async,
+                       [&server_context, model = *model,
+                        inference_request]() -> absl::StatusOr<torch::IValue> {
+                         RETURN_IF_CANCELLED(server_context,
+                                             CancelLocation::kPredictAsync);
+                         return PredictInternal(model, inference_request);
+                       });
       }
 
     } else {
@@ -324,7 +333,9 @@ absl::StatusOr<PredictResponse> PyTorchModule::Predict(
 }
 
 absl::StatusOr<RegisterModelResponse> PyTorchModule::RegisterModel(
-    const RegisterModelRequest& request) {
+    const RegisterModelRequest& request,
+    const CancellableServerContext& server_context) {
+  RETURN_IF_CANCELLED(server_context, CancelLocation::kRegModelLogic);
   absl::string_view model_key = request.model_spec().model_path();
   if (model_key.empty()) {
     return absl::InvalidArgumentError("Empty model key during registration");
@@ -350,8 +361,8 @@ absl::StatusOr<RegisterModelResponse> PyTorchModule::RegisterModel(
   }
   // Set collector for metric during model construct.
   ModelConstructMetrics model_construct_metrics;
-  PS_RETURN_IF_ERROR(
-      store_->PutModel(model_key, request, model_construct_metrics));
+  PS_RETURN_IF_ERROR(store_->PutModel(model_key, request,
+                                      model_construct_metrics, server_context));
 
   RegisterModelResponse register_model_response;
   if (!request.warm_up_batch_request_json().empty()) {
@@ -363,7 +374,9 @@ absl::StatusOr<RegisterModelResponse> PyTorchModule::RegisterModel(
 }
 
 absl::StatusOr<DeleteModelResponse> PyTorchModule::DeleteModel(
-    const DeleteModelRequest& request) {
+    const DeleteModelRequest& request,
+    const CancellableServerContext& server_context) {
+  RETURN_IF_CANCELLED(server_context, CancelLocation::kDelModelLogic);
   PS_RETURN_IF_ERROR(store_->DeleteModel(request.model_spec().model_path()));
   return DeleteModelResponse();
 }

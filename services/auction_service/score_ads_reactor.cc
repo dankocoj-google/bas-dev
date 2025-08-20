@@ -40,7 +40,10 @@
 #include "services/auction_service/reporting/seller/seller_reporting_manager.h"
 #include "services/auction_service/reporting/seller/top_level_seller_reporting_manager.h"
 #include "services/auction_service/utils/proto_utils.h"
+#include "services/common/attestation/adtech_enrollment_cache.h"
+#include "services/common/attestation/attestation_util.h"
 #include "services/common/constants/common_constants.h"
+#include "services/common/metric/roma_metric_utils.h"
 #include "services/common/private_aggregation/private_aggregation_post_auction_util.h"
 #include "services/common/util/auction_scope_util.h"
 #include "services/common/util/cancellation_wrapper.h"
@@ -368,7 +371,8 @@ ScoreAdsReactor::ScoreAdsReactor(
     server_common::KeyFetcherManagerInterface* key_fetcher_manager,
     CryptoClientWrapperInterface* crypto_client,
     const AsyncReporter& async_reporter,
-    const AuctionServiceRuntimeConfig& runtime_config)
+    const AuctionServiceRuntimeConfig& runtime_config,
+    AdtechEnrollmentCacheInterface* adtech_attestation_cache)
     : CodeDispatchReactor<ScoreAdsRequest, ScoreAdsRequest::ScoreAdsRawRequest,
                           ScoreAdsResponse,
                           ScoreAdsResponse::ScoreAdsRawResponse>(
@@ -380,7 +384,7 @@ ScoreAdsReactor::ScoreAdsReactor(
       async_reporter_(async_reporter),
       enable_seller_debug_url_generation_(
           runtime_config.enable_seller_debug_url_generation),
-      roma_timeout_ms_(runtime_config.roma_timeout_ms),
+      roma_timeout_duration_(runtime_config.roma_timeout_duration),
       log_context_(
           GetLoggingContext(raw_request_),
           raw_request_.consented_debug_config(),
@@ -420,7 +424,8 @@ ScoreAdsReactor::ScoreAdsReactor(
       buyers_with_report_win_enabled_(
           runtime_config.buyers_with_report_win_enabled),
       protected_app_signals_buyers_with_report_win_enabled_(
-          runtime_config.protected_app_signals_buyers_with_report_win_enabled) {
+          runtime_config.protected_app_signals_buyers_with_report_win_enabled),
+      adtech_attestation_cache_(adtech_attestation_cache) {
   PS_CHECK_OK(
       [this]() {
         PS_ASSIGN_OR_RETURN(metric_context_,
@@ -530,7 +535,7 @@ void ScoreAdsReactor::BuildScoreAdRequestForComponentGhostWinners(
         std::move(*ghost_winner.mutable_k_anon_join_candidates()));
 
     dispatch_request->metadata = shared_context;
-    dispatch_request->tags[kRomaTimeoutTag] = roma_timeout_ms_;
+    dispatch_request->tags[kRomaTimeoutTag] = roma_timeout_duration_;
     dispatch_requests.push_back(*std::move(dispatch_request));
   }
 }
@@ -625,7 +630,7 @@ void ScoreAdsReactor::BuildScoreAdRequestForComponentWinner(
       std::move(*auction_result.mutable_k_anon_winner_join_candidates()));
 
   dispatch_request->metadata = shared_context;
-  dispatch_request->tags[kRomaTimeoutTag] = roma_timeout_ms_;
+  dispatch_request->tags[kRomaTimeoutTag] = roma_timeout_duration_;
   dispatch_requests.push_back(*std::move(dispatch_request));
 }
 
@@ -748,7 +753,7 @@ void ScoreAdsReactor::PopulateProtectedAudienceDispatchRequests(
     }
 
     dispatch_request->metadata = shared_context;
-    dispatch_request->tags[kRomaTimeoutTag] = roma_timeout_ms_;
+    dispatch_request->tags[kRomaTimeoutTag] = roma_timeout_duration_;
     dispatch_requests.push_back(*std::move(dispatch_request));
   }
 }
@@ -821,7 +826,7 @@ void ScoreAdsReactor::MayPopulateProtectedAppSignalsDispatchRequests(
     }
 
     dispatch_request->metadata = shared_context;
-    dispatch_request->tags[kRomaTimeoutTag] = roma_timeout_ms_;
+    dispatch_request->tags[kRomaTimeoutTag] = roma_timeout_duration_;
     dispatch_requests.push_back(*std::move(dispatch_request));
   }
 }
@@ -938,6 +943,9 @@ void ScoreAdsReactor::Execute() {
             LogIfError(
                 metric_context_->LogHistogram<metric::kUdfExecutionDuration>(
                     js_execution_time_ms));
+            // Must be before ScoreAdsCallback so that metric context doesn't go
+            // out of scope
+            LogRomaMetrics(result, metric_context_.get());
             ScoreAdsCallback(result, enable_debug_reporting);
           },
           [this]() {
@@ -950,7 +958,7 @@ void ScoreAdsReactor::Execute() {
                    ->AccumulateMetric<metric::kAuctionErrorCountByErrorCode>(
                        1, metric::kAuctionScoreAdsFailedToDispatchCode));
     PS_LOG(ERROR, log_context_)
-        << "Execution request failed for batch: " << raw_request_.DebugString()
+        << "Execution request failed: "
         << status.ToString(absl::StatusToStringMode::kWithEverything);
     FinishWithStatus(
         grpc::Status(grpc::StatusCode::UNKNOWN, status.ToString()));
@@ -1016,6 +1024,7 @@ void ScoreAdsReactor::PerformReportingWithSellerAndBuyerCodeIsolation(
       .enable_protected_app_signals = enable_protected_app_signals_,
       .enable_report_win_input_noising = enable_report_win_input_noising_,
       .enable_adtech_code_logging = enable_adtech_code_logging_,
+      .roma_timeout_duration = roma_timeout_duration_,
       .report_result_udf_version = code_version_};
   buyer_reporting_dispatch_request_data_.auction_config =
       BuildAuctionConfig(raw_request_);
@@ -1999,10 +2008,17 @@ void ScoreAdsReactor::CancellableReportResultCallback(
         EncryptAndFinishOK();
         return;
       }
+      absl::Time start_report_win_time = absl::Now();
       report_win_status = PerformPAReportWin(
           reporting_dispatch_request_config_,
           buyer_reporting_dispatch_request_data_, seller_device_signals_,
-          [this](const std::vector<absl::StatusOr<DispatchResponse>>& result) {
+          [this, start_report_win_time](
+              const std::vector<absl::StatusOr<DispatchResponse>>& result) {
+            int report_win_execution_time_ms =
+                (absl::Now() - start_report_win_time) / absl::Milliseconds(1);
+            LogIfError(metric_context_
+                           ->LogHistogram<metric::kReportWinExecutionDuration>(
+                               report_win_execution_time_ms));
             ReportWinCallback(result);
           },
           dispatcher_);
@@ -2014,10 +2030,17 @@ void ScoreAdsReactor::CancellableReportResultCallback(
         EncryptAndFinishOK();
         return;
       }
+      absl::Time start_report_win_time = absl::Now();
       report_win_status = PerformPASReportWin(
           reporting_dispatch_request_config_,
           buyer_reporting_dispatch_request_data_, seller_device_signals_,
-          [this](const std::vector<absl::StatusOr<DispatchResponse>>& result) {
+          [this, start_report_win_time](
+              const std::vector<absl::StatusOr<DispatchResponse>>& result) {
+            int report_win_execution_time_ms =
+                (absl::Now() - start_report_win_time) / absl::Milliseconds(1);
+            LogIfError(metric_context_
+                           ->LogHistogram<metric::kReportWinExecutionDuration>(
+                               report_win_execution_time_ms));
             ReportWinCallback(result);
           },
           dispatcher_);
@@ -2064,6 +2087,10 @@ void ScoreAdsReactor::PerformDebugReporting() {
         << "Skipping debug reporting since it is not yet supported for server "
            "orchestated multi-seller auctions.";
     raw_response_.mutable_ad_score()->clear_debug_report_urls();
+    return;
+  }
+  AttestDebugUrls();
+  if (!raw_response_.ad_score().has_debug_report_urls()) {
     return;
   }
   if (raw_request_.fdo_flags().enable_sampled_debug_reporting()) {
@@ -2417,10 +2444,17 @@ void ScoreAdsReactor::DispatchReportResultRequest() {
           buyer_reporting_dispatch_request_data_
               .selected_buyer_and_seller_reporting_id};
   seller_device_signals_ = GenerateSellerDeviceSignals(dispatch_request_data);
+  absl::Time start_report_result_time = absl::Now();
   absl::Status dispatched = PerformReportResult(
       reporting_dispatch_request_config_, seller_device_signals_,
       dispatch_request_data,
-      [this](const std::vector<absl::StatusOr<DispatchResponse>>& result) {
+      [this, start_report_result_time](
+          const std::vector<absl::StatusOr<DispatchResponse>>& result) {
+        int report_result_execution_time_ms =
+            (absl::Now() - start_report_result_time) / absl::Milliseconds(1);
+        LogIfError(metric_context_
+                       ->LogHistogram<metric::kReportResultExecutionDuration>(
+                           report_result_execution_time_ms));
         ReportResultCallback(result);
       },
       dispatcher_);
@@ -2555,10 +2589,11 @@ void ScoreAdsReactor::DispatchReportingRequest(
       .enable_report_win_url_generation = enable_report_win_url_generation_,
       .enable_protected_app_signals = enable_protected_app_signals_,
       .enable_report_win_input_noising = enable_report_win_input_noising_,
-      .enable_adtech_code_logging = enable_adtech_code_logging_};
+      .enable_adtech_code_logging = enable_adtech_code_logging_,
+      .roma_timeout_duration = roma_timeout_duration_};
   DispatchRequest dispatch_request = GetReportingDispatchRequest(
       dispatch_request_config, dispatch_request_data);
-  dispatch_request.tags[kRomaTimeoutTag] = roma_timeout_ms_;
+  dispatch_request.tags[kRomaTimeoutTag] = roma_timeout_duration_;
 
   std::vector<DispatchRequest> dispatch_requests = {dispatch_request};
   auto status = dispatcher_.BatchExecute(
@@ -2583,4 +2618,32 @@ void ScoreAdsReactor::DispatchReportingRequest(
     EncryptAndFinishOK();
   }
 }
+
+void ScoreAdsReactor::AttestDebugUrls() {
+  if (adtech_attestation_cache_ == nullptr) {
+    return;
+  }
+  auto* debug_urls =
+      raw_response_.mutable_ad_score()->mutable_debug_report_urls();
+  auto win_url = debug_urls->auction_debug_win_url();
+  auto loss_url = debug_urls->auction_debug_loss_url();
+  if (win_url.empty() && loss_url.empty()) {
+    return;
+  }
+  if (auto adtech_site = GetValidAdTechSite(win_url);
+      (!adtech_site.ok() || !adtech_attestation_cache_->Query(*adtech_site))) {
+    debug_urls->clear_auction_debug_win_url();
+    PS_VLOG(kNoisyInfo) << "Debug win URL dropped due to attestation.";
+  }
+  if (auto adtech_site = GetValidAdTechSite(loss_url);
+      (!adtech_site.ok() || !adtech_attestation_cache_->Query(*adtech_site))) {
+    debug_urls->clear_auction_debug_loss_url();
+    PS_VLOG(kNoisyInfo) << "Debug loss URL dropped due to attestation.";
+  }
+  if (debug_urls->auction_debug_win_url().empty() &&
+      debug_urls->auction_debug_loss_url().empty()) {
+    raw_response_.mutable_ad_score()->clear_debug_report_urls();
+  }
+}
+
 }  // namespace privacy_sandbox::bidding_auction_servers

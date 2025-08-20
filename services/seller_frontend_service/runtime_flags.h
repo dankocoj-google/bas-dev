@@ -65,6 +65,9 @@ inline constexpr absl::string_view
 inline constexpr absl::string_view SFE_TCMALLOC_MAX_TOTAL_THREAD_CACHE_BYTES =
     "SFE_TCMALLOC_MAX_TOTAL_THREAD_CACHE_BYTES";
 inline constexpr absl::string_view K_ANON_API_KEY = "K_ANON_API_KEY";
+inline constexpr absl::string_view K_ANON_TEST_SERVER = "K_ANON_TEST_SERVER";
+inline constexpr absl::string_view K_ANON_SERVER_PLAINTEXT =
+    "K_ANON_SERVER_PLAINTEXT";
 inline constexpr absl::string_view ALLOW_COMPRESSED_AUCTION_CONFIG =
     "ALLOW_COMPRESSED_AUCTION_CONFIG";
 inline constexpr absl::string_view SCORING_SIGNALS_FETCH_MODE =
@@ -94,8 +97,9 @@ inline constexpr absl::string_view CURL_SFE_QUEUE_MAX_WAIT_MS =
     "CURL_SFE_QUEUE_MAX_WAIT_MS";
 inline constexpr absl::string_view CURL_SFE_WORK_QUEUE_LENGTH =
     "CURL_SFE_WORK_QUEUE_LENGTH";
+inline constexpr char SFE_BFE_COMPRESSION_ALGO[] = "SFE_BFE_COMPRESSION_ALGO";
 
-inline constexpr int kNumRuntimeFlags = 41;
+inline constexpr int kNumRuntimeFlags = 43;
 inline constexpr std::array<absl::string_view, kNumRuntimeFlags> kFlags = {
     PORT,
     HEALTHCHECK_PORT,
@@ -123,6 +127,8 @@ inline constexpr std::array<absl::string_view, kNumRuntimeFlags> kFlags = {
     SFE_TCMALLOC_MAX_TOTAL_THREAD_CACHE_BYTES,
     SELLER_CODE_FETCH_CONFIG,
     K_ANON_API_KEY,
+    K_ANON_TEST_SERVER,
+    K_ANON_SERVER_PLAINTEXT,
     ALLOW_COMPRESSED_AUCTION_CONFIG,
     SCORING_SIGNALS_FETCH_MODE,
     HEADER_PASSED_TO_BUYER,

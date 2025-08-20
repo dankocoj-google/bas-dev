@@ -22,6 +22,21 @@ variable "environment" {
   type        = string
 }
 
+variable "region" {
+  description = "Region. Ex: eastus, westus, etc."
+  type        = string
+}
+
+variable "resource_group_name" {
+  description = "Resource Group Name"
+  type        = string
+}
+
+variable "fe_service" {
+  description = "Frontend Service Name"
+  type        = string
+}
+
 variable "service" {
   description = "Service Name"
   type        = string
@@ -52,4 +67,25 @@ variable "otel_grpc_port" {
   description = "OTel Collector gRPC Port"
   type        = number
   default     = 4317
+}
+
+variable "parc_user_assigned_identity_client_id" {
+  description = "Parc User Assigned Managed Identity (for Blob Storage Account Access) Client ID"
+  type        = string
+}
+
+variable "use_byoc" {
+  description = "Bring Your Own Certificate Approach. True if enabled"
+  type        = bool
+  default     = false
+}
+
+variable "storage_account_name" {
+  description = "Storage Account Name"
+  type        = string
+}
+
+variable "storage_account_resource_group" {
+  description = "Storage Account Resource Group"
+  type        = string
 }

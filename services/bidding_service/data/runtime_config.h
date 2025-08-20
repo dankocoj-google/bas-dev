@@ -19,6 +19,7 @@
 
 #include <string>
 
+#include "absl/time/time.h"
 #include "services/bidding_service/bidding_v8_constants.h"
 
 namespace privacy_sandbox::bidding_auction_servers {
@@ -37,7 +38,7 @@ struct BiddingServiceRuntimeConfig {
 
   bool enable_buyer_debug_url_generation = false;
   // Sets the timeout used by Roma for dispatch requests
-  std::string roma_timeout_ms = "10000";
+  std::string roma_timeout_duration = "10000ms";
   // Enables Buyer Code Wrapper for wrapping the AdTech code before loading it
   // in Roma. This wrapper can be used to enable multiple features such as :
   // - Exporting console.logs from Roma
@@ -84,6 +85,12 @@ struct BiddingServiceRuntimeConfig {
   // Each debug url has a 1/n chance of being selected when sampling is enabled.
   // This flag defines the value of n.
   int debug_reporting_sampling_upper_bound = 1000;
+
+  // BYOB batch config.
+  bool enable_byob_batching = false;
+
+  // The maximum duration to wait for a batch to start processing.
+  absl::Duration byob_batch_start_timeout;
 };
 
 }  // namespace privacy_sandbox::bidding_auction_servers

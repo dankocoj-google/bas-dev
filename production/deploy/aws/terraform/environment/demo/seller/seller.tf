@@ -130,6 +130,7 @@ locals {
     SFE_TCMALLOC_MAX_TOTAL_THREAD_CACHE_BYTES                 = "10737418240"
 
     ENABLE_CHAFFING        = "" # Example: "false"
+    ENABLE_CHAFFING_V2     = "" # Example: "false"
     ENABLE_PRIORITY_VECTOR = "" # Example: "true"
     # Possible values:
     # NOT_FETCHED: No call to KV server is made. All ads are sent to scoreAd().
@@ -138,6 +139,7 @@ locals {
     SCORING_SIGNALS_FETCH_MODE      = "REQUIRED"
     ALLOW_COMPRESSED_AUCTION_CONFIG = "" # Example: "true"
     ENABLE_BUYER_CACHING            = "" # Example: "true"
+    SFE_BFE_COMPRESSION_ALGO        = "" # Provide an integer value: 0 - uncompressed, 1 - DEFLATE, 2 - zstd
 
     ###### [BEGIN] Libcurl parameters.
     #

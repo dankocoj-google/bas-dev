@@ -1,0 +1,77 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "parc-chart.fullname" . }}-deployment
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "parc-chart.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "parc-chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "parc-chart.selectorLabels" . | nindent 8 }}
+        {{- if .Values.parc.userAssignedIdentityClientId }}
+        azure.workload.identity/use: "true"
+        {{- end }}
+      annotations:
+        checksum/config: {{ (dict "parameters.jsonl" (include "parc-chart.parametersJsonlContent" .)) | toJson | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      containers:
+        - name: {{ .Values.serviceName }}-container
+          image: {{ .Values.parc.image.repository }}
+          imagePullPolicy: {{ .Values.parc.image.pullPolicy }}
+          args:
+            - "--address=0.0.0.0"
+            - "--port={{ .Values.parc.port }}"
+            - "--verbose"
+            - "--parameters_file_path=/parc/data/parameters.jsonl"
+            - "--otel_collector={{ .Values.parc.otel.collectorEndpoint }}:{{ .Values.parc.otel.grpcPort }}"
+            - "--blob_http_endpoint={{ .Values.parc.blobHttpEndpoint }}"
+            - "--use_workload_auth"
+          ports:
+            - name: grpc
+              containerPort: {{ .Values.parc.port }}
+              protocol: TCP
+          volumeMounts:
+            - name: {{ .Values.serviceName }}-parameters-volume
+              mountPath: "/parc/data"
+              readOnly: true
+            {{- if .Values.parc.useByoc }}
+            - name: secrets-store-inline
+              mountPath: "/mnt/secrets-store"
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: {{ .Values.serviceName }}-parameters-volume
+          configMap:
+            name: {{ include "parc-chart.fullname" . }}-parameters
+        {{- if .Values.parc.useByoc }}
+        - name: secrets-store-inline
+          csi:
+            driver: "secrets-store.csi.k8s.io"
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: "{{ .Values.parc.feService }}-spc"
+        {{- end }}

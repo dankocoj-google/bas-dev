@@ -1,0 +1,90 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Values.frontend.serviceName }}-deployment"
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "bidding-auction-servers-chart.labels" . | nindent 4 }}
+    app: {{ .Values.frontend.serviceName }}
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.frontend.serviceName }}
+  template:
+    metadata:
+      annotations:
+        "configmap_hash": {{ .Values.global.parcConfigMapHash | quote }}
+        "microsoft.containerinstance.virtualnode.injectdns": "false"
+        "microsoft.containerinstance.virtualnode.injectkubeproxy": "false"
+        "microsoft.containerinstance.virtualnode.ccepolicy": {{ .Values.frontend.ccePolicy | quote }}
+      labels:
+        app: {{ .Values.frontend.serviceName }}
+        {{- include "bidding-auction-servers-chart.labels" . | nindent 8 }}
+    spec:
+      hostNetwork: false
+      securityContext:
+        seccompProfile:
+          type: "Unconfined"
+      containers:
+        - name: "{{ .Values.frontend.serviceName }}-container"
+          image: "{{ .Values.frontend.image }}"
+          command: ["/server/bin/init_server_basic"]
+          env:
+            - name: "POD_LABELS_JSON"
+              value: {{ (dict "environment" .Values.global.environment "operator" .Values.global.operator "service" .Values.frontend.serviceName "region" .Values.global.region "zone" (first .Values.global.availabilityZones | default "") ) | toJson | quote }}
+            - name: "POD_RESOURCE_ID"
+              valueFrom:
+                fieldRef:
+                  fieldPath: "metadata.name"
+          ports:
+            - containerPort: {{ .Values.frontend.ports.grpc }}
+              protocol: TCP
+          resources:
+            limits:
+              cpu: {{ .Values.frontend.resources.cpuLimit }}
+              memory: {{ .Values.frontend.resources.memoryLimit }}
+          readinessProbe:
+            grpc:
+              port: {{ .Values.frontend.ports.grpc }}
+            initialDelaySeconds: 45
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            grpc:
+              port: {{ .Values.frontend.ports.grpc }}
+            initialDelaySeconds: 45
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          startupProbe:
+            grpc:
+              port: {{ .Values.frontend.ports.grpc }}
+            initialDelaySeconds: 45
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+      nodeSelector:
+        virtualization: "virtualnode2"
+      tolerations:
+        - effect: "NoSchedule"
+          key: "virtual-kubelet.io/provider"
+          operator: "Exists"

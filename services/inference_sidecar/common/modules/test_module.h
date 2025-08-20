@@ -39,12 +39,17 @@ class TestModule final : public ModuleInterface {
   ~TestModule() override;
 
   absl::StatusOr<PredictResponse> Predict(
-      const PredictRequest& request,
-      const RequestContext& request_context) override;
+      const PredictRequest& request, const RequestContext& request_context,
+      const CancellableServerContext& server_context =
+          EmptyCancellableServerContext()) override;
   absl::StatusOr<RegisterModelResponse> RegisterModel(
-      const RegisterModelRequest& request) override;
+      const RegisterModelRequest& request,
+      const CancellableServerContext& server_context =
+          EmptyCancellableServerContext()) override;
   absl::StatusOr<DeleteModelResponse> DeleteModel(
-      const DeleteModelRequest& request) override;
+      const DeleteModelRequest& request,
+      const CancellableServerContext& server_context =
+          EmptyCancellableServerContext()) override;
 
   void set_model_path(absl::string_view path) { model_path_ = path; }
 

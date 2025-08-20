@@ -20,6 +20,10 @@ output "frontend_address" {
   value = module.networking.frontend_address
 }
 
+output "frontend_ipv6_address" {
+  value = module.networking.frontend_ipv6_address
+}
+
 output "collector_endpoint" {
   value = var.runtime_flags["COLLECTOR_ENDPOINT"]
 }

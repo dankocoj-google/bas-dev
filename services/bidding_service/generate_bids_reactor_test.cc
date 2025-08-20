@@ -24,6 +24,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/notification.h"
+#include "api/attestation.pb.h"
 #include "gmock/gmock.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/message_differencer.h"
@@ -31,6 +32,8 @@
 #include "services/bidding_service/benchmarking/bidding_benchmarking_logger.h"
 #include "services/bidding_service/benchmarking/bidding_no_op_logger.h"
 #include "services/bidding_service/generate_bids_reactor_test_utils.h"
+#include "services/common/attestation/adtech_enrollment_cache.h"
+#include "services/common/attestation/attestation_util.h"
 #include "services/common/constants/common_service_flags.h"
 #include "services/common/encryption/key_fetcher_factory.h"
 #include "services/common/encryption/mock_crypto_client_wrapper.h"
@@ -39,7 +42,6 @@
 #include "services/common/test/random.h"
 #include "services/common/test/utils/test_init.h"
 #include "src/encryption/key_fetcher/interface/key_fetcher_manager_interface.h"
-#include "src/roma/interface/metrics.h"
 
 namespace privacy_sandbox::bidding_auction_servers {
 namespace {
@@ -72,6 +74,12 @@ using RawRequest = GenerateBidsRequest::GenerateBidsRawRequest;
 using Response = GenerateBidsResponse;
 using IGForBidding =
     GenerateBidsRequest::GenerateBidsRawRequest::InterestGroupForBidding;
+using ::wireless::android::adservices::mdd::adtech_enrollment::chrome::
+    PrivacySandboxAttestationsGatedAPIProto;
+using ::wireless::android::adservices::mdd::adtech_enrollment::chrome::
+    PrivacySandboxAttestationsProto;
+using PrivacySandboxAttestedAPIsProto =
+    PrivacySandboxAttestationsProto::PrivacySandboxAttestedAPIsProto;
 
 absl::Status FakeExecute(std::vector<DispatchRequest>& batch,
                          BatchDispatchDoneCallback batch_callback,
@@ -250,10 +258,10 @@ class GenerateBidsReactorTest : public testing::Test {
     request_.set_request_ciphertext(raw_request.SerializeAsString());
   }
 
-  void CheckGenerateBids(const RawRequest& raw_request,
-                         const Response& expected_response,
-                         std::optional<BiddingServiceRuntimeConfig>
-                             runtime_config = std::nullopt) {
+  void CheckGenerateBids(
+      const RawRequest& raw_request, const Response& expected_response,
+      std::optional<BiddingServiceRuntimeConfig> runtime_config = std::nullopt,
+      AdtechEnrollmentCache* adtech_attestation_cache = nullptr) {
     Response response;
     std::unique_ptr<BiddingBenchmarkingLogger> benchmarkingLogger =
         std::make_unique<BiddingNoOpLogger>();
@@ -265,10 +273,10 @@ class GenerateBidsReactorTest : public testing::Test {
 
     request_.set_request_ciphertext(raw_request.SerializeAsString());
     grpc::CallbackServerContext context;
-    GenerateBidsReactor reactor(&context, dispatcher_, &request_, &response,
-                                std::move(benchmarkingLogger),
-                                key_fetcher_manager_.get(),
-                                crypto_client_.get(), *runtime_config);
+    GenerateBidsReactor reactor(
+        &context, dispatcher_, &request_, &response,
+        std::move(benchmarkingLogger), key_fetcher_manager_.get(),
+        crypto_client_.get(), *runtime_config, adtech_attestation_cache);
     reactor.Execute();
     google::protobuf::util::MessageDifferencer diff;
     std::string diff_output;
@@ -1054,21 +1062,116 @@ TEST_F(GenerateBidsReactorTest,
   EXPECT_FALSE(response.response_ciphertext().empty());
 }
 
-TEST(RomaMetricsTest, CheckRomaMetricsNames) {
-  EXPECT_EQ(google::scp::roma::kExecutionMetricDurationMs,
-            metric::kRawRomaExecutionDuration);
-  EXPECT_EQ(google::scp::roma::kExecutionMetricQueueFullnessRatio,
-            metric::kRawRomaExecutionQueueFullnessRatio);
-  EXPECT_EQ(google::scp::roma::kExecutionMetricActiveWorkerRatio,
-            metric::kRawRomaExecutionActiveWorkerRatio);
-  EXPECT_EQ(google::scp::roma::kExecutionMetricWaitTimeMs,
-            metric::kRawRomaExecutionWaitTime);
-  EXPECT_EQ(google::scp::roma::kExecutionMetricJsEngineCallDurationMs,
-            metric::kRawRomaExecutionCodeRunDuration);
-  EXPECT_EQ(google::scp::roma::kInputParsingMetricJsEngineDurationMs,
-            metric::kRawRomaExecutionJsonInputParsingDuration);
-  EXPECT_EQ(google::scp::roma::kHandlerCallMetricJsEngineDurationMs,
-            metric::kRawRomaExecutionJsEngineHandlerCallDuration);
+TEST_F(GenerateBidsReactorTest, GeneratesBidsWithAttestedDebugUrls) {
+  const std::string response_json = R"JSON(
+    [{
+      "render": "https://adTech.com/ad?id=123",
+      "bid": 1,
+      "debug_report_urls": {
+        "auction_debug_loss_url": "https://loss.com/debugLoss",
+        "auction_debug_win_url": "https://www.win.com/debugWin"
+      }
+    }]
+  )JSON";
+
+  AdWithBid bid = GetAdWithBidFromIgBar(kTestRenderUrl, 1);
+  DebugReportUrls debug_report_urls;
+  debug_report_urls.set_auction_debug_loss_url("https://loss.com/debugLoss");
+  debug_report_urls.set_auction_debug_win_url("https://www.win.com/debugWin");
+  *bid.mutable_debug_report_urls() = debug_report_urls;
+
+  auto adtech_loss_site =
+      GetValidAdTechSite(debug_report_urls.auction_debug_loss_url());
+  auto adtech_win_site =
+      GetValidAdTechSite(debug_report_urls.auction_debug_win_url());
+  ASSERT_TRUE(adtech_loss_site.ok()) << adtech_loss_site.status();
+  ASSERT_TRUE(adtech_win_site.ok()) << adtech_win_site.status();
+
+  std::unique_ptr<AdtechEnrollmentCache> cache =
+      std::make_unique<AdtechEnrollmentCache>();
+  PrivacySandboxAttestationsProto attestation_proto;
+  ASSERT_TRUE(google::protobuf::TextFormat::ParseFromString(
+      absl::StrFormat(
+          R"pb(
+            all_apis: [
+              ATTRIBUTION_REPORTING,
+              PRIVATE_AGGREGATION,
+              PROTECTED_AUDIENCE,
+              SHARED_STORAGE,
+              TOPICS
+            ]
+            sites_attested_for_all_apis: "%s"
+            sites_attested_for_all_apis: "%s"
+          )pb",
+          *adtech_loss_site, *adtech_win_site),
+      &attestation_proto));
+  auto proto_ptr = std::make_unique<const PrivacySandboxAttestationsProto>(
+      attestation_proto);
+
+  cache->Refresh(std::move(proto_ptr));
+  ASSERT_TRUE(cache->Query(*adtech_loss_site));
+  ASSERT_TRUE(cache->Query(*adtech_win_site));
+
+  GenerateBidsResponse::GenerateBidsRawResponse raw_response;
+  *raw_response.add_bids() = bid;
+  Response ads;
+  *ads.mutable_response_ciphertext() = raw_response.SerializeAsString();
+  std::vector<IGForBidding> igs;
+  igs.push_back(GetIGForBiddingBar());
+
+  EXPECT_CALL(dispatcher_, BatchExecute)
+      .WillOnce([&response_json](std::vector<DispatchRequest>& batch,
+                                 BatchDispatchDoneCallback batch_callback) {
+        return FakeExecute(batch, std::move(batch_callback), response_json);
+      });
+  CheckGenerateBids(
+      BuildGenerateBidsRawRequest({.interest_groups_to_add = std::move(igs),
+                                   .enable_debug_reporting = true,
+                                   .enable_sampled_debug_reporting = false}),
+      ads,
+      BiddingServiceRuntimeConfig({.enable_buyer_debug_url_generation = true}),
+      cache.get());
+}
+
+TEST_F(GenerateBidsReactorTest,
+       GeneratesBidsWithoutDebugUrlsIfAttestationFails) {
+  const std::string response_json = R"JSON(
+    [{
+      "render": "https://adTech.com/ad?id=123",
+      "bid": 1,
+      "debug_report_urls": {
+        "auction_debug_loss_url": "https://loss.com/debugLoss",
+        "auction_debug_win_url": "https://www.win.com/debugWin"
+      }
+    }]
+  )JSON";
+
+  // No debug URLs.
+  AdWithBid bid = GetAdWithBidFromIgBar(kTestRenderUrl, 1);
+
+  // Empty cache, debug URLs are not enrolled.
+  std::unique_ptr<AdtechEnrollmentCache> cache =
+      std::make_unique<AdtechEnrollmentCache>();
+
+  GenerateBidsResponse::GenerateBidsRawResponse raw_response;
+  *raw_response.add_bids() = bid;
+  Response ads;
+  *ads.mutable_response_ciphertext() = raw_response.SerializeAsString();
+  std::vector<IGForBidding> igs;
+  igs.push_back(GetIGForBiddingBar());
+
+  EXPECT_CALL(dispatcher_, BatchExecute)
+      .WillOnce([&response_json](std::vector<DispatchRequest>& batch,
+                                 BatchDispatchDoneCallback batch_callback) {
+        return FakeExecute(batch, std::move(batch_callback), response_json);
+      });
+  CheckGenerateBids(
+      BuildGenerateBidsRawRequest({.interest_groups_to_add = std::move(igs),
+                                   .enable_debug_reporting = true,
+                                   .enable_sampled_debug_reporting = false}),
+      ads,
+      BiddingServiceRuntimeConfig({.enable_buyer_debug_url_generation = true}),
+      cache.get());
 }
 
 }  // namespace

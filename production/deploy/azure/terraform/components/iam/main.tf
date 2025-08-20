@@ -12,6 +12,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+data "azurerm_key_vault" "tls_certificate_akv" {
+  name                = var.tls_certificate_akv_name
+  resource_group_name = var.tls_certificate_akv_resource_group_name
+}
+
+# Creates a Key Vault Certificate Officer Role (if BYOC is Enabled)
+resource "azurerm_role_assignment" "azure_kv_cert_role_assignment" {
+  count                = var.use_byoc ? 1 : 0
+  scope                = data.azurerm_key_vault.tls_certificate_akv.id
+  role_definition_name = "Key Vault Administrator"
+  principal_id         = var.aks_key_vault_addon_identity_object_id
+}
+
+# Parc Authentication Resources
+# Create the Parc User Assigned Managed-Identity
+resource "azurerm_user_assigned_identity" "parc_user_assigned_managed_identity" {
+  name                = "${var.operator}-${var.environment}-${var.region}-parc_managed_identity"
+  resource_group_name = var.resource_group_name
+  location            = var.region
+}
+
+# Create the Federated Credential for Parc Workload Identity
+resource "azurerm_federated_identity_credential" "parc_user_assigned_identity_federated_credential" {
+  name                = azurerm_user_assigned_identity.parc_user_assigned_managed_identity.name
+  resource_group_name = var.resource_group_name
+  parent_id           = azurerm_user_assigned_identity.parc_user_assigned_managed_identity.id
+  issuer              = var.oidc_issuer_url
+  subject             = "system:serviceaccount:${var.namespace}:${var.parc_service_account_name}"
+  audience            = ["api://AzureADTokenExchange"]
+}
+
+# Create the Storage Blob Data Reader Role for the Parc Identity
+resource "azurerm_role_assignment" "storage_blob_data_reader_role_assignment" {
+  scope                = var.parc_storage_account_resource_id
+  role_definition_name = "Storage Blob Data Reader"
+  principal_id         = azurerm_user_assigned_identity.parc_user_assigned_managed_identity.principal_id
+}
+
 # TLS Certificate Resources
 # Create the User Assigned Managed-Identity
 resource "azurerm_user_assigned_identity" "cert_manager_identity" {

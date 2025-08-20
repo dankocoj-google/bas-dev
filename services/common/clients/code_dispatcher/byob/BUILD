@@ -23,5 +23,6 @@ cc_library(
         "//services/common/clients/code_dispatcher:udf_code_loader_interface",
         "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/status:statusor",
+        "@google_privacysandbox_servers_common//src/roma/byob/interface:metrics",
     ],
 )

@@ -34,12 +34,17 @@ class PyTorchModule final : public ModuleInterface {
   explicit PyTorchModule(const InferenceSidecarRuntimeConfig& config);
 
   absl::StatusOr<PredictResponse> Predict(
-      const PredictRequest& request,
-      const RequestContext& request_context) override;
+      const PredictRequest& request, const RequestContext& request_context,
+      const CancellableServerContext& server_context =
+          EmptyCancellableServerContext()) override;
   absl::StatusOr<RegisterModelResponse> RegisterModel(
-      const RegisterModelRequest& request) override;
+      const RegisterModelRequest& request,
+      const CancellableServerContext& server_context =
+          EmptyCancellableServerContext()) override;
   absl::StatusOr<DeleteModelResponse> DeleteModel(
-      const DeleteModelRequest& request) override;
+      const DeleteModelRequest& request,
+      const CancellableServerContext& server_context =
+          EmptyCancellableServerContext()) override;
 
  private:
   friend class PyTorchModuleResetModelTest;

@@ -28,7 +28,7 @@ of B&A to your GCP image repo, for AWS you will need to manually add to the terr
 after build. If you want to enforce rebuild all sidecar binary, please set
 `--rebuild-inference-sidecar`, otherwise script will skip build exist binary.
 
-By default we will packaging all models(tensorflow_v2_14_0 and pytorch_v2_1_1) binary in the built
+By default we will packaging all models(tensorflow_v2_17_0 and pytorch_v2_1_1) binary in the built
 image. You can congfig to target specific model by change .bazelrc files's `--//:inference_runtime`
 to "tensorflow"/"pytorch".
 
@@ -48,7 +48,7 @@ To disable Inference packaging Build: change .bazelrc files's `--//:inference_bu
 
     -   Set `INFERENCE_SIDECAR_BINARY_PATH` to `/server/bin/inference_sidecar_<module_name>` for GCP
         platform. the suffix module name support currently are `pytorch_v2_1_1` and
-        `tensorflow_v2_14_0`.
+        `tensorflow_v2_17_0`.
     -   Set `INFERENCE_MODEL_BUCKET_NAME` to the name of the GCS bucket that you have created. Note
         that this _not_ a url. For example, the bucket name can be "test_models".
     -   Set `INFERENCE_MODEL_CONFIG_PATH` flag to the path to the model configuration file relative
@@ -65,11 +65,12 @@ To disable Inference packaging Build: change .bazelrc files's `--//:inference_bu
             "cpuset": <an array of integer values>,
             "tcmalloc_release_bytes_per_sec": <integer_value>,
             "tcmalloc_max_total_thread_cache_bytes": <integer_value>,
-            "tcmalloc_max_per_cpu_cache_bytes": <integer_value>
+            "tcmalloc_max_per_cpu_cache_bytes": <integer_value>,
+            "inference_enable_cancellation_at_sidecar": <boolean_value>
         }
         ```
 
-        `module_name` flag is required and should be one of "test", "tensorflow_v2_14_0", or
+        `module_name` flag is required and should be one of "test", "tensorflow_v2_17_0", or
         "pytorch_v2_1_1". All other flags are optional.
 
 ### Start the B&A servers in AWS
@@ -97,7 +98,7 @@ To disable Inference packaging Build: change .bazelrc files's `--//:inference_bu
 
     -   Set `INFERENCE_SIDECAR_BINARY_PATH` to `/server/bin/inference_sidecar_<module_name>` for AWS
         platform. the suffix module name support currently are `pytorch_v2_1_1` and
-        `tensorflow_v2_14_0`.
+        `tensorflow_v2_17_0`.
     -   Set `INFERENCE_MODEL_BUCKET_NAME` to the name of the S3 bucket that you have created. Note
         that this _not_ a url. For example, the bucket name can be "test_models".
     -   Set `INFERENCE_MODEL_CONFIG_PATH` flag to the path to the model configuration file relative
@@ -114,11 +115,12 @@ To disable Inference packaging Build: change .bazelrc files's `--//:inference_bu
             "cpuset": <an array of integer values>,
             "tcmalloc_release_bytes_per_sec": <integer_value>,
             "tcmalloc_max_total_thread_cache_bytes": <integer_value>,
-            "tcmalloc_max_per_cpu_cache_bytes": <integer_value>
+            "tcmalloc_max_per_cpu_cache_bytes": <integer_value>,
+            "inference_enable_cancellation_at_sidecar": <boolean_value>
         }
         ```
 
-        `module_name` flag is required and should be one of "test", "tensorflow_v2_14_0", or
+        `module_name` flag is required and should be one of "test", "tensorflow_v2_17_0", or
         "pytorch_v2_1_1". All other flags are optional.
 
 ### Note on AWS B&A deployment with static model loading
@@ -151,6 +153,43 @@ RAM Limitation
     process if no alternate stack has been made available via sigaltstack(2)). As a result
     `will kills off the process holding sidecar if exceed`, but bidding main process will not be
     effected.
+
+### Note on gRPC request deadlines
+
+-   The inference related gRPC request deadlines are individually controlled and by default
+    unlimited, i.e., no deadline. is set. The following flags may be used to set related deadlines:
+    `INFERENCE_MODEL_REGISTRATION_TIMEOUT_MS` for model registration requests,
+    `INFERENCE_MODEL_EXECUTION_TIMEOUT_MS` for predict requests, and
+    `INFERENCE_MODEL_PATHS_REQUEST_TIMEOUT_MS` for get model path requests.
+
+### Cancellation Feature
+
+-   In order to improve performance stability under high load, there is an inference cancellation
+    feature that propagates the cancellation of generateBid requests to the bidding service to the
+    inference sidecar. This feature is controlled by two flags:
+    1. `INFERENCE_ENABLE_CANCELLATION_AT_BIDDING` allows cancellation of bidding requests to be
+       propagated to their corresponding gRPC calls, causing the reactor to inform the gRPC sidecar
+       of the upstream cancellation and return early.
+    2. `INFERENCE_ENABLE_CANCELLATION_AT_SIDECAR` allows early abort of inference requests for which
+       the cancellation signal has been received from the gRPC sidecar. This is specifically for
+       in-progress inference calls, not calls that have been dispatched but not begun executing.
+       Please note that in deployment configurations, this flag must be set via the
+       `INFERENCE_SIDECAR_RUNTIME_CONFIG` json, documented above.
+-   Note that both flags can be utilized independently, but the largest performance improvement will
+    be realized if they are used in conjunction. The use cases for each combination of flags are as
+    follows:
+    1.  Bidding & Sidecar Cancellation Disabled: When the generateBids request is cancelled or times
+        out, the generateBidsReactor will abort without invoking inference if and only if the Roma
+        request(s) have not yet been dispatched.
+    2.  Bidding Enabled, Sidecar Cancellation Disabled: When the generateBids request is cancelled,
+        the cancellation signal will be propogated to the inference sidecar, and inference requests
+        that have not begun yet will be cancelled, but inference requests in progress will proceed.
+    3.  Bidding Disabled, Sidecar Cancellation Enabled: When the generateBids request is cancelled,
+        the inference sidecar will not know of it. However, if an inference request times out via
+        the pre-configured request deadline, it will be aborted instead of completing the request.
+    4.  Bidding & Sidecar Cancellation Enabled: When the generateBids request is cancelled or times
+        out, no new inference requests shall be made, and pending inference requests will be
+        aborted.
 
 ## Local Testing
 

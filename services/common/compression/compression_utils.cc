@@ -18,6 +18,7 @@
 
 #include "absl/strings/str_cat.h"
 #include "services/common/compression/gzip.h"
+#include "services/common/compression/zstd.h"
 
 namespace privacy_sandbox::bidding_auction_servers {
 
@@ -27,6 +28,8 @@ absl::StatusOr<CompressionType> ToCompressionType(int num) {
       return CompressionType::kUncompressed;
     case 1:
       return CompressionType::kGzip;
+    case 2:
+      return CompressionType::kZstd;
     default:
       return absl::InvalidArgumentError(
           absl::StrCat("Cannot convert value to CompressionType enum: ", num));
@@ -40,6 +43,8 @@ absl::StatusOr<std::string> Compress(std::string uncompressed,
       return std::move(uncompressed);
     case kGzip:
       return GzipCompress(uncompressed);
+    case kZstd:
+      return ZstdCompress(uncompressed);
     default:
       return absl::InvalidArgumentError(
           "Invalid compression type supplied during compression");
@@ -53,6 +58,8 @@ absl::StatusOr<std::string> Decompress(std::string compressed,
       return std::move(compressed);
     case kGzip:
       return GzipDecompress(compressed);
+    case kZstd:
+      return ZstdDecompress(compressed);
     default:
       return absl::InvalidArgumentError(
           "Invalid compression type supplied during decompression");
@@ -64,6 +71,8 @@ absl::StatusOr<std::string> Decompress(CompressionType compression_type,
   switch (compression_type) {
     case kGzip:
       return GzipDecompress(compressed);
+    case kZstd:
+      return ZstdDecompress(compressed);
     default:
       return absl::InvalidArgumentError(
           "Invalid compression type supplied during decompression");

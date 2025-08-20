@@ -29,7 +29,7 @@ grpc::ServerUnaryReactor* AuctionService::ScoreAds(
   // Heap allocate the reactor. Deleted in reactor's OnDone call.
   auto reactor = score_ads_reactor_factory_(
       context, request, response, key_fetcher_manager_.get(),
-      crypto_client_.get(), runtime_config_);
+      crypto_client_.get(), runtime_config_, adtech_attestation_cache_);
   reactor->Execute();
   return reactor.release();
 }

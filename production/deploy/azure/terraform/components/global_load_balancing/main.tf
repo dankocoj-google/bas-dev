@@ -35,7 +35,7 @@ resource "azurerm_traffic_manager_profile" "global_load_balancer" {
 
 # CNAME Record connecting the Domain to the Traffic Manager Profile
 resource "azurerm_dns_cname_record" "dns_cname_record" {
-  name                = var.operator
+  name                = "${var.operator}-${var.environment}"
   zone_name           = var.dns_zone_name
   resource_group_name = var.dns_zone_resource_group
   ttl                 = 60

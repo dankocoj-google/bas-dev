@@ -4093,7 +4093,7 @@ TYPED_TEST(SellerFrontEndServiceTest, ChaffingV1Enabled_SendsChaffRequest) {
 
   auto mock_rng = std::make_unique<MockRandomNumberGenerator>();
   // For the ShouldSkipChaffing() call - do not skip chaffing in this case.
-  EXPECT_CALL(*mock_rng, GetUniformReal(0, 1)).WillOnce(Return(1.0));
+  EXPECT_CALL(*mock_rng, GetUniformDouble(0, 1)).WillOnce(Return(1.0));
   // For generating the number of chaff requests to send.
   EXPECT_CALL(*mock_rng, GetUniformInt(1, 1)).WillOnce(Return(1));
   // For generating the chaff request size.
@@ -4213,9 +4213,13 @@ TYPED_TEST(SellerFrontEndServiceTest,
 
   auto mock_rng = std::make_unique<MockRandomNumberGenerator>();
   // For the ShouldSkipChaffing() call - do not skip chaffing in this case.
-  EXPECT_CALL(*mock_rng, GetUniformReal(0, 1)).WillOnce(Return(1.0));
+  EXPECT_CALL(*mock_rng, GetUniformDouble(0, 1)).WillOnce(Return(1.0));
   // For generating the number of chaff requests to send.
   EXPECT_CALL(*mock_rng, GetUniformInt(1, 1)).WillOnce(Return(1));
+  // For when a normal distribution is applied to determine the number of chaff
+  // requests.
+  EXPECT_CALL(*mock_rng, GetNormalDouble(((float)1 / 6), (float)0.3))
+      .WillOnce(Return(1));
 
   MockRandomNumberGeneratorFactory mock_rng_factory;
   EXPECT_CALL(mock_rng_factory, CreateRng)

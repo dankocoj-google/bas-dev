@@ -57,6 +57,7 @@ SERVER_START_CMD=$(cat << END
 --create_new_event_engine="false" \
 --test_mode="true" \
 --enable_chaffing="false" \
+--enable_chaffing_v2="false" \
 --enable_kanon=${ENABLE_KANON} \
 --k_anon_api_key="PLACEHOLDER" \
 --num_k_anon_shards="10" \

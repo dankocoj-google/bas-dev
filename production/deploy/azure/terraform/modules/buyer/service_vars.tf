@@ -73,9 +73,9 @@ variable "private_dns_zone_name" {
   type        = string
 }
 
-variable "zone" {
-  description = "Zone Name"
-  type        = string
+variable "availability_zones" {
+  description = "List of Availability Zones"
+  type        = list(string)
 }
 
 variable "namespace" {
@@ -178,6 +178,12 @@ variable "grpc_port" {
   type        = number
 }
 
+variable "otel_image" {
+  description = "OTel Image with Version"
+  type        = string
+  default     = "otel/opentelemetry-collector-contrib:latest"
+}
+
 variable "otel_grpc_port" {
   description = "OTel gRPC Port"
   type        = number
@@ -207,4 +213,98 @@ variable "parc_port" {
   description = "Parc gRPC Port"
   type        = number
   default     = 2000
+}
+
+variable "acr_id" {
+  description = "Resource ID of the Azure Container Registry"
+  type        = string
+}
+
+variable "fe_image" {
+  description = "Frontend Server Image"
+  type        = string
+}
+
+variable "image" {
+  description = "Backend Server Image"
+  type        = string
+}
+
+variable "fe_ccepolicy" {
+  description = "Frontend Confidential Compute Policy. Default is a wildcard policy."
+  type        = string
+  default     = "cGFja2FnZSBwb2xpY3kKCmFwaV9zdm4gOj0gIjAuMTAuMCIKCm1vdW50X2RldmljZSA6PSB7ImFsbG93ZWQiOiB0cnVlfQptb3VudF9vdmVybGF5IDo9IHsiYWxsb3dlZCI6IHRydWV9CmNyZWF0ZV9jb250YWluZXIgOj0geyJhbGxvd2VkIjogdHJ1ZSwgImVudl9saXN0IjogbnVsbCwgImFsbG93X3N0ZGlvX2FjY2VzcyI6IHRydWV9CnVubW91bnRfZGV2aWNlIDo9IHsiYWxsb3dlZCI6IHRydWV9IAp1bm1vdW50X292ZXJsYXkgOj0geyJhbGxvd2VkIjogdHJ1ZX0KZXhlY19pbl9jb250YWluZXIgOj0geyJhbGxvd2VkIjogdHJ1ZSwgImVudl9saXN0IjogbnVsbH0KZXhlY19leHRlcm5hbCA6PSB7ImFsbG93ZWQiOiB0cnVlLCAiZW52X2xpc3QiOiBudWxsLCAiYWxsb3dfc3RkaW9fYWNjZXNzIjogdHJ1ZX0Kc2h1dGRvd25fY29udGFpbmVyIDo9IHsiYWxsb3dlZCI6IHRydWV9CnNpZ25hbF9jb250YWluZXJfcHJvY2VzcyA6PSB7ImFsbG93ZWQiOiB0cnVlfQpwbGFuOV9tb3VudCA6PSB7ImFsbG93ZWQiOiB0cnVlfQpwbGFuOV91bm1vdW50IDo9IHsiYWxsb3dlZCI6IHRydWV9CmdldF9wcm9wZXJ0aWVzIDo9IHsiYWxsb3dlZCI6IHRydWV9CmR1bXBfc3RhY2tzIDo9IHsiYWxsb3dlZCI6IHRydWV9CnJ1bnRpbWVfbG9nZ2luZyA6PSB7ImFsbG93ZWQiOiB0cnVlfQpsb2FkX2ZyYWdtZW50IDo9IHsiYWxsb3dlZCI6IHRydWV9CnNjcmF0Y2hfbW91bnQgOj0geyJhbGxvd2VkIjogdHJ1ZX0Kc2NyYXRjaF91bm1vdW50IDo9IHsiYWxsb3dlZCI6IHRydWV9Cg=="
+}
+
+variable "ccepolicy" {
+  description = "Confidential Compute Policy. Default is a wildcard policy."
+  type        = string
+  default     = "cGFja2FnZSBwb2xpY3kKCmFwaV9zdm4gOj0gIjAuMTAuMCIKCm1vdW50X2RldmljZSA6PSB7ImFsbG93ZWQiOiB0cnVlfQptb3VudF9vdmVybGF5IDo9IHsiYWxsb3dlZCI6IHRydWV9CmNyZWF0ZV9jb250YWluZXIgOj0geyJhbGxvd2VkIjogdHJ1ZSwgImVudl9saXN0IjogbnVsbCwgImFsbG93X3N0ZGlvX2FjY2VzcyI6IHRydWV9CnVubW91bnRfZGV2aWNlIDo9IHsiYWxsb3dlZCI6IHRydWV9IAp1bm1vdW50X292ZXJsYXkgOj0geyJhbGxvd2VkIjogdHJ1ZX0KZXhlY19pbl9jb250YWluZXIgOj0geyJhbGxvd2VkIjogdHJ1ZSwgImVudl9saXN0IjogbnVsbH0KZXhlY19leHRlcm5hbCA6PSB7ImFsbG93ZWQiOiB0cnVlLCAiZW52X2xpc3QiOiBudWxsLCAiYWxsb3dfc3RkaW9fYWNjZXNzIjogdHJ1ZX0Kc2h1dGRvd25fY29udGFpbmVyIDo9IHsiYWxsb3dlZCI6IHRydWV9CnNpZ25hbF9jb250YWluZXJfcHJvY2VzcyA6PSB7ImFsbG93ZWQiOiB0cnVlfQpwbGFuOV9tb3VudCA6PSB7ImFsbG93ZWQiOiB0cnVlfQpwbGFuOV91bm1vdW50IDo9IHsiYWxsb3dlZCI6IHRydWV9CmdldF9wcm9wZXJ0aWVzIDo9IHsiYWxsb3dlZCI6IHRydWV9CmR1bXBfc3RhY2tzIDo9IHsiYWxsb3dlZCI6IHRydWV9CnJ1bnRpbWVfbG9nZ2luZyA6PSB7ImFsbG93ZWQiOiB0cnVlfQpsb2FkX2ZyYWdtZW50IDo9IHsiYWxsb3dlZCI6IHRydWV9CnNjcmF0Y2hfbW91bnQgOj0geyJhbGxvd2VkIjogdHJ1ZX0Kc2NyYXRjaF91bm1vdW50IDo9IHsiYWxsb3dlZCI6IHRydWV9Cg=="
+}
+
+variable "frontend_cpu_limit" {
+  description = "Frontend Pod CPU Limit"
+  type        = string
+  default     = null
+}
+
+variable "frontend_memory_limit" {
+  description = "Frontend Pod Memory Limit"
+  type        = string
+  default     = null
+}
+
+variable "backend_cpu_limit" {
+  description = "Backend Pod CPU Limit"
+  type        = string
+  default     = null
+}
+
+variable "backend_memory_limit" {
+  description = "Backend Pod Memory Limit"
+  type        = string
+  default     = null
+}
+
+variable "use_byoc" {
+  description = "Bring Your Own Certificate Approach. Enabled if true"
+  type        = bool
+  default     = false
+}
+
+variable "tls_certificate_akv_name" {
+  description = "Name of the TLS Certificate Azure Key Vault"
+  type        = string
+}
+
+variable "tls_certificate_akv_resource_group_name" {
+  description = "Name of the TLS Certificate Azure Key Vault"
+  type        = string
+}
+
+variable "certificate_name" {
+  description = "Name of Bring Your Own Certificate"
+  type        = string
+}
+
+variable "storage_account_name" {
+  description = "Storage Account Name"
+  type        = string
+}
+
+variable "storage_account_resource_group" {
+  description = "Storage Account Resource Group"
+  type        = string
+}
+
+variable "grafana_identity_principal_id" {
+  description = "Grafana Identity ID"
+  type        = string
+  default     = null
+}
+
+variable "use_managed_monitoring" {
+  description = "Enables managed prometheus and managed grafana if true."
+  type        = bool
+  default     = false
 }

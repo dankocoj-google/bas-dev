@@ -49,6 +49,7 @@ SERVER_START_CMD=$(cat << END
 --consented_debug_token="test_token" \
 --ps_verbosity=${PS_VERBOSITY} \
 --enable_chaffing="false" \
+--enable_chaffing_v2="false" \
 --enable_kanon=${ENABLE_KANON} \
 --enable_protected_audience=${ENABLE_PROTECTED_AUDIENCE} \
 --bfe_tcmalloc_background_release_rate_bytes_per_second=4096 \

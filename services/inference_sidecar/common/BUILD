@@ -47,10 +47,12 @@ cc_library(
         "//proto:inference_sidecar_cc_grpc_proto",
         "//proto:inference_sidecar_cc_proto",
         "//sandbox:sandbox_worker",
+        "//utils:cancellation_util",
         "//utils:cpu",
         "//utils:log",
         "//utils:tcmalloc",
         "@com_github_grpc_grpc//:grpc++",
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
@@ -89,6 +91,37 @@ genrule(
 )
 
 cc_test(
+    name = "grpc_sidecar_test",
+    size = "medium",
+    timeout = "short",
+    srcs = ["grpc_sidecar_test.cc"],
+    data = [
+        ":gen_test_model",
+        ":inference_sidecar_test_target",
+    ],
+    flaky = True,
+    deps = [
+        ":test_constants",
+        "//:grpc_sidecar",
+        "//modules:module_interface",
+        "//modules:test_module",
+        "//proto:inference_sidecar_cc_grpc_proto",
+        "//proto:inference_sidecar_cc_proto",
+        "//sandbox:sandbox_executor",
+        "//utils:cancellation_util",
+        "//utils:file_util",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:reflection",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "inference_sidecar_test",
     size = "medium",
     timeout = "short",
@@ -98,6 +131,7 @@ cc_test(
         ":inference_sidecar_test_target",
     ],
     flaky = True,
+    includes = ["services/inference_sidecar/common/modules"],
     deps = [
         ":test_constants",
         "//proto:inference_sidecar_cc_grpc_proto",

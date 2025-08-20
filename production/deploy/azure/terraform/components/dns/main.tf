@@ -22,6 +22,18 @@ resource "azurerm_private_dns_zone" "private-dns-zone" {
   resource_group_name = var.resource_group_name
 }
 
+# Creates a Private DNS Zone Link to the Virtual Network
+# This allows the servers on the Kubernetes Cluster to have internal
+# communication (due to the lack of kube-proxy) with the private dns zone.
+resource "azurerm_private_dns_zone_virtual_network_link" "vnet-link" {
+  for_each              = var.aks_vnet_ids
+  name                  = "${var.operator}-${var.environment}-${each.key}-vnet-link"
+  resource_group_name   = var.resource_group_name
+  private_dns_zone_name = var.private_dns_zone_name
+  virtual_network_id    = each.value
+  depends_on            = [azurerm_private_dns_zone.private-dns-zone]
+}
+
 # Creates a Private DNS A Record for the Frontend Services sharing the same operator. Ex: SFE or BFE
 resource "azurerm_private_dns_a_record" "fe_service" {
   name                = var.fe_service

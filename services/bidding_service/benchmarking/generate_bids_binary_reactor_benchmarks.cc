@@ -27,6 +27,7 @@ namespace privacy_sandbox::bidding_auction_servers {
 
 class GenerateBidByobDispatchClientStub
     : public ByobDispatchClient<
+          GenerateBidsRequest::GenerateBidsRawRequest,
           roma_service::GenerateProtectedAudienceBidRequest,
           roma_service::GenerateProtectedAudienceBidResponse> {
  public:
@@ -36,8 +37,16 @@ class GenerateBidByobDispatchClientStub
       const roma_service::GenerateProtectedAudienceBidRequest& request,
       absl::Duration timeout,
       absl::AnyInvocable<
-          void(absl::StatusOr<
-               roma_service::GenerateProtectedAudienceBidResponse>) &&>
+          void(absl::StatusOr<ByobDispatchResponse<
+                   roma_service::GenerateProtectedAudienceBidResponse>>) &&>
+          callback) override;
+  absl::Status ExecuteManyWithSharedTimeouts(
+      GenerateBidsRequest::GenerateBidsRawRequest& raw_request,
+      roma_service::GenerateProtectedAudienceBidRequest common_request,
+      absl::Duration start_timeout, absl::Duration execution_timeout,
+      absl::AnyInvocable<
+          void(std::vector<absl::StatusOr<ByobDispatchResponse<
+                   roma_service::GenerateProtectedAudienceBidResponse>>>) &&>
           callback) override;
 };
 
@@ -50,14 +59,39 @@ absl::Status GenerateBidByobDispatchClientStub::Execute(
     const roma_service::GenerateProtectedAudienceBidRequest& request,
     absl::Duration timeout,
     absl::AnyInvocable<
-        void(absl::StatusOr<
-             roma_service::GenerateProtectedAudienceBidResponse>) &&>
+        void(absl::StatusOr<ByobDispatchResponse<
+                 roma_service::GenerateProtectedAudienceBidResponse>>) &&>
         callback) {
-  roma_service::GenerateProtectedAudienceBidResponse bid_response;
-  *bid_response.add_bids() = MakeARandomRomaProtectedAudienceBid(
+  ByobDispatchResponse<roma_service::GenerateProtectedAudienceBidResponse>
+      bid_response;
+  *bid_response.response.add_bids() = MakeARandomRomaProtectedAudienceBid(
       ToUnixNanos(absl::Now()), /*debug_reporting_enabled=*/true,
       /*allow_component_auction=*/true);
   std::move(callback)(bid_response);
+  return absl::OkStatus();
+}
+
+absl::Status GenerateBidByobDispatchClientStub::ExecuteManyWithSharedTimeouts(
+    GenerateBidsRequest::GenerateBidsRawRequest& raw_request,
+    roma_service::GenerateProtectedAudienceBidRequest common_request,
+    absl::Duration start_timeout, absl::Duration execution_timeout,
+    absl::AnyInvocable<
+        void(std::vector<absl::StatusOr<ByobDispatchResponse<
+                 roma_service::GenerateProtectedAudienceBidResponse>>>) &&>
+        callback) {
+  std::vector<absl::StatusOr<
+      ByobDispatchResponse<roma_service::GenerateProtectedAudienceBidResponse>>>
+      bid_responses;
+  for (int i = 0; i < raw_request.interest_group_for_bidding_size(); i++) {
+    ByobDispatchResponse<roma_service::GenerateProtectedAudienceBidResponse>
+        bid_response;
+    *bid_response.response.add_bids() = MakeARandomRomaProtectedAudienceBid(
+        ToUnixNanos(absl::Now()), /*debug_reporting_enabled=*/true,
+        /*allow_component_auction=*/true);
+    bid_responses.emplace_back(bid_response);
+  }
+
+  std::move(callback)(bid_responses);
   return absl::OkStatus();
 }
 

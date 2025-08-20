@@ -68,3 +68,13 @@ output "kube_config_cluster_ca_certificate" {
   description = "Kube Config Cluster CA Certificate, used for provider configuration"
   value       = azurerm_kubernetes_cluster.aks.kube_config.0.cluster_ca_certificate
 }
+
+output "aks_key_vault_addon_identity_object_id" {
+  description = "The Object/Principal ID of the Azure Key Vault Secrets Provider add-on identity for the AKS cluster."
+  value       = azurerm_kubernetes_cluster.aks.key_vault_secrets_provider[0].secret_identity[0].object_id
+}
+
+output "aks_key_vault_addon_identity_client_id" {
+  description = "The Client ID of the Azure Key Vault Secrets Provider add-on identity for the AKS cluster."
+  value       = azurerm_kubernetes_cluster.aks.key_vault_secrets_provider[0].secret_identity[0].client_id
+}

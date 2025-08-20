@@ -14,14 +14,17 @@
 
 #include "services/seller_frontend_service/util/chaffing_utils.h"
 
+#include <utility>
+
 #include "absl/status/statusor.h"
 
 namespace privacy_sandbox::bidding_auction_servers {
 
-RequestConfig GetChaffingV1GetBidsRequestConfig(bool is_chaff_request,
-                                                RandomNumberGenerator& rng) {
+RequestConfig GetChaffingV1GetBidsRequestConfig(
+    bool is_chaff_request, RandomNumberGenerator& rng,
+    CompressionType sfe_bfe_compression_algo) {
   RequestConfig request_config = {.minimum_request_size = 0,
-                                  .compression_type = CompressionType::kGzip,
+                                  .compression_type = sfe_bfe_compression_algo,
                                   .is_chaff_request = is_chaff_request};
 
   if (is_chaff_request) {
@@ -34,9 +37,10 @@ RequestConfig GetChaffingV1GetBidsRequestConfig(bool is_chaff_request,
 
 RequestConfig GetChaffingV2GetBidsRequestConfig(
     absl::string_view buyer_name, bool is_chaff_request,
-    const MovingMedianManager& moving_median_manager, RequestContext context) {
+    const MovingMedianManager& moving_median_manager, RequestContext context,
+    CompressionType sfe_bfe_compression_algo) {
   RequestConfig request_config = {.minimum_request_size = 0,
-                                  .compression_type = CompressionType::kGzip,
+                                  .compression_type = sfe_bfe_compression_algo,
                                   .is_chaff_request = is_chaff_request};
 
   if (is_chaff_request) {
@@ -74,11 +78,35 @@ RequestConfig GetChaffingV2GetBidsRequestConfig(
 bool ShouldSkipChaffing(size_t num_buyers, RandomNumberGenerator& rng) {
   if (num_buyers <= 5) {
     // Skip chaffing for 99% of requests.
-    return (rng.GetUniformReal(0, 1) < .99);
+    return (rng.GetUniformDouble(0, 1) < .99);
   }
 
   // Skip chaffing for 95% of requests.
-  return (rng.GetUniformReal(0, 1) < .95);
+  return (rng.GetUniformDouble(0, 1) < .95);
+}
+
+absl::StatusOr<std::pair<absl::Duration, int>> GetBuyerChaffingV2Values(
+    const ChaffMedianTrackers& chaff_median_trackers) {
+  bool request_duration_window_filled =
+      chaff_median_trackers.request_duration->IsWindowFilled();
+  bool response_size_window_filled =
+      chaff_median_trackers.response_size->IsWindowFilled();
+  if (!request_duration_window_filled || !response_size_window_filled) {
+    return std::pair<absl::Duration, int>{
+        kChaffingV2UnfilledWindowResponseDurationMs,
+        kChaffingV2UnfilledWindowResponseSizeBytes};
+  }
+
+  absl::StatusOr<int> request_duration =
+      chaff_median_trackers.request_duration->GetMedian();
+  absl::StatusOr<int> response_size =
+      chaff_median_trackers.response_size->GetMedian();
+  if (!request_duration.ok() || !response_size.ok()) {
+    return FirstNotOkStatusOr(request_duration, response_size);
+  }
+
+  return std::pair<absl::Duration, int>{absl::Milliseconds(*request_duration),
+                                        *response_size};
 }
 
 }  // namespace privacy_sandbox::bidding_auction_servers

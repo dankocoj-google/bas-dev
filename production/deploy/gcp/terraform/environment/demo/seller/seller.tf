@@ -249,9 +249,12 @@ module "seller" {
     # Http headers in sfe request to be passed in bfe request, in lower case separated by comma without space.
     # Example:  HEADER_PASSED_TO_BUYER =  "exp-id,exp-id789"
 
-    ALLOW_COMPRESSED_AUCTION_CONFIG = "" # Example: "true"
-    ENABLE_PRIORITY_VECTOR          = "" # Example: "true"
-    ENABLE_BUYER_CACHING            = "" # Example: "true"
+    ALLOW_COMPRESSED_AUCTION_CONFIG = ""  # Example: "true"
+    ENABLE_PRIORITY_VECTOR          = ""  # Example: "true"
+    ENABLE_BUYER_CACHING            = ""  # Example: "true"
+    ENABLE_CHAFFING                 = ""  # Example: "false"
+    ENABLE_CHAFFING_V2              = ""  # Example: "false"
+    SFE_BFE_COMPRESSION_ALGO        = "1" # Provide an integer value: 0 - uncompressed, 1 - DEFLATE, 2 - zstd
 
     ###### [BEGIN] Libcurl parameters.
     #
@@ -319,12 +322,13 @@ module "seller" {
 }
 
 module "seller_frontend_load_balancing" {
-  source               = "../../services/frontend_load_balancing"
-  environment          = local.environment
-  operator             = local.seller_operator
-  frontend_ip_address  = module.seller[local.environment].frontend_address
-  frontend_domain_name = local.seller_domain_name
-  frontend_dns_zone    = local.frontend_dns_zone
+  source                = "../../services/frontend_load_balancing"
+  environment           = local.environment
+  operator              = local.seller_operator
+  frontend_ip_address   = module.seller[local.environment].frontend_address
+  frontend_ipv6_address = module.seller[local.environment].frontend_ipv6_address
+  frontend_domain_name  = local.seller_domain_name
+  frontend_dns_zone     = local.frontend_dns_zone
 
   frontend_domain_ssl_certificate_id = local.frontend_domain_ssl_certificate_id
   frontend_certificate_map_id        = local.frontend_certificate_map_id

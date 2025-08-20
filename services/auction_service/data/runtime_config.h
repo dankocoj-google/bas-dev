@@ -27,7 +27,7 @@ namespace privacy_sandbox::bidding_auction_servers {
 struct AuctionServiceRuntimeConfig {
   bool enable_seller_debug_url_generation = false;
   // Sets the timeout used by Roma for dispatch requests
-  std::string roma_timeout_ms = "10000";
+  std::string roma_timeout_duration = "10000ms";
 
   // Enables Seller Code Wrapper for complete code generation.
   bool enable_seller_code_wrapper = false;

@@ -38,6 +38,12 @@ variable "frontend_ip_address" {
   description = "Frontend ip address"
   type        = string
 }
+
+variable "frontend_ipv6_address" {
+  description = "Frontend ipv6 address"
+  type        = string
+}
+
 variable "frontend_domain_ssl_certificate_id" {
   description = "A GCP ssl certificate id. Example: projects/test-project/global/sslCertificates/dev. Used to terminate client-to-external-LB connections. Unused if frontend_certificate_map_id is specified."
   type        = string

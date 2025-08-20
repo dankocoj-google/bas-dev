@@ -179,6 +179,52 @@ resource "aws_cloudwatch_dashboard" "environment_dashboard" {
                 },
                 "title": "udf_execution.dispatcher_initialization.duration_ms [MEAN]"
             }
+        },
+        {
+            "height": 6,
+            "width": 10,
+            "x": 10,
+            "y": 18,
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    [ { "expression": "SEARCH(' service.name=\"auction\" deployment.environment=\"${var.environment}\" Noise=(\"Raw\" OR \"Noised\") MetricName=\"report_result_execution.duration_ms\" ', 'Average', 60)", "id": "e1", "label": "$${PROP('Dim.service.name')} $${PROP('Dim.deployment.environment')} $${PROP('Dim.Noise')} $${PROP('Dim.service.instance.id')}" } ]
+                ],
+                "timezone": "UTC",
+                "region": "${var.region}",
+                "view": "timeSeries",
+                "stacked": false,
+                "yAxis": {
+                    "left": {
+                        "min": 0,
+                        "showUnits": false
+                    }
+                },
+                "title": "report_result_execution.duration_ms [MEAN]"
+            }
+        },
+        {
+            "height": 6,
+            "width": 10,
+            "x": 0,
+            "y": 24,
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    [ { "expression": "SEARCH(' service.name=\"auction\" deployment.environment=\"${var.environment}\" Noise=(\"Raw\" OR \"Noised\") MetricName=\"report_win_execution.duration_ms\" ', 'Average', 60)", "id": "e1", "label": "$${PROP('Dim.service.name')} $${PROP('Dim.deployment.environment')} $${PROP('Dim.Noise')} $${PROP('Dim.service.instance.id')}" } ]
+                ],
+                "timezone": "UTC",
+                "region": "${var.region}",
+                "view": "timeSeries",
+                "stacked": false,
+                "yAxis": {
+                    "left": {
+                        "min": 0,
+                        "showUnits": false
+                    }
+                },
+                "title": "report_win_execution.duration_ms [MEAN]"
+            }
         }
     ]
 }

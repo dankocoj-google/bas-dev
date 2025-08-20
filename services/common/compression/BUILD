@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
 
 package(default_visibility = [
     "//visibility:public",
@@ -26,6 +26,7 @@ cc_library(
     ],
     deps = [
         ":gzip",
+        ":zstd",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@zlib",
@@ -54,5 +55,42 @@ cc_test(
         ":gzip",
         "@boost//:iostreams",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "zstd",
+    srcs = ["zstd.cc"],
+    hdrs = [
+        "zstd.h",
+    ],
+    linkopts = [
+        "-Wl,-rpath,\\$$ORIGIN/../lib",
+    ],
+    linkstatic = True,
+    deps = [
+        "@com_facebook_zstd//:zstd",
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
+
+cc_binary(
+    name = "compression_benchmarks",
+    testonly = True,
+    srcs = [
+        "compression_benchmarks.cc",
+    ],
+    linkopts = [
+        "-Wl,-rpath,\\$$ORIGIN/../lib",
+    ],
+    linkstatic = True,
+    deps = [
+        ":compression_utils",
+        "//services/common/test/utils:test_init",
+        "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest",
+        "@google_benchmark//:benchmark",
+        "@google_benchmark//:benchmark_main",
     ],
 )

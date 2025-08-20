@@ -320,7 +320,8 @@ ScoreAdsReactorTestHelper::ScoreAdsReactorTestHelper() {
 ScoreAdsResponse ScoreAdsReactorTestHelper::ExecuteScoreAds(
     const ScoreAdsRequest::ScoreAdsRawRequest& raw_request,
     MockV8DispatchClient& dispatcher,
-    const AuctionServiceRuntimeConfig& runtime_config) {
+    const AuctionServiceRuntimeConfig& runtime_config,
+    AdtechEnrollmentCacheInterface* adtech_attestation_cache) {
   SetupMockCryptoClientWrapper(raw_request, crypto_client_);
   *request_.mutable_request_ciphertext() = raw_request.SerializeAsString();
   request_.set_key_id(kKeyId);
@@ -330,7 +331,8 @@ ScoreAdsResponse ScoreAdsReactorTestHelper::ExecuteScoreAds(
   ScoreAdsReactor reactor(&context, dispatcher, &request_, &response,
                           std::move(benchmarkingLogger_),
                           key_fetcher_manager_.get(), &crypto_client_,
-                          *async_reporter, runtime_config);
+                          *async_reporter, runtime_config,
+                          adtech_attestation_cache);
   reactor.Execute();
   return response;
 }

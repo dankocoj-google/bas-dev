@@ -19,5 +19,15 @@ output "parc_ip" {
 
 output "parc_config_map_hash" {
   description = "Parc ConfigMap Hash"
-  value       = sha256(jsonencode(kubernetes_config_map.parc-parameters.data))
+  value       = sha256(jsonencode(data.kubernetes_config_map.parc-parameters.data))
+}
+
+output "parc_service_account_name" {
+  description = "Parc Service Account Name"
+  value       = data.kubernetes_service_account.parc_aks_sa.metadata[0].name
+}
+
+output "parc_storage_account_resource_id" {
+  description = "Parc Storage Account Resource ID"
+  value       = data.azurerm_storage_account.parc_storage_account.id
 }

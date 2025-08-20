@@ -14,17 +14,7 @@
 
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
-exclude: (?x)^(
-               bazel-(bin|out|testlogs|workspace)/.*|
-               version\.txt|
-               .*\.patch|
-               builders/.*|
-               services/inference_sidecar/common/builders/.*|
-               services/inference_sidecar/modules/pytorch_v2_1_1/builders/.*|
-               services/inference_sidecar/modules/tensorflow_v2_14_0/builders/.*|
-               testing/functionaltest-system/.*|
-               google_internal/kokoro/key/.*
-         )$
+exclude: (?x)^( bazel-(bin|out|testlogs|workspace)/.*| version\.txt| .*\.patch| builders/.*| third_party/libtld/.*\.c| third_party/libtld/.*\.h| third_party/libtld/.*\.cpp| services/inference_sidecar/common/builders/.*| services/inference_sidecar/modules/pytorch_v2_1_1/builders/.*| services/inference_sidecar/modules/tensorflow_v2_17_0/builders/.*| testing/functionaltest-system/.*| google_internal/kokoro/key/.* )$
 
 fail_fast: false
 repos:
@@ -39,23 +29,18 @@ repos:
   - id: check-merge-conflict
   - id: check-yaml
     entry: check-yaml --allow-multiple-documents
-    exclude: production/deploy/azure/terraform/components/tls/tls-chart
+    exclude: production/deploy/azure/helm
   - id: check-json
   - id: check-symlinks
   - id: check-added-large-files
   - id: check-vcs-permalinks
   - id: check-executables-have-shebangs
   - id: detect-private-key
-    exclude: (?x)^(
-                  services/common/test/artifacts/grpc_tls/localhost\.key|
-                  production/deploy/.*|
-                  google_internal/kokoro/key/.*
-              )$
+    exclude: (?x)^( services/common/test/artifacts/grpc_tls/localhost\.key| production/deploy/.*| google_internal/kokoro/key/.* )$
 
 - repo: https://github.com/jumanjihouse/pre-commit-hooks
   rev: 3.0.0
   hooks:
-  - id: git-check
   - id: script-must-not-have-extension
     exclude: production/packaging/gcp/build_and_test.sh
   - id: script-must-have-extension
@@ -139,12 +124,7 @@ repos:
     types_or:
     - javascript
     - markdown
-    exclude: (?x)^(
-                 testing/functional/suts/inference/data/seller-auction-service/scoreAd\.js|
-                 testing/functional/suts/.*/data/seller-auction-service/scoreAd\.js|
-                 testing/functional/suts/.*/data/buyer-bidding-service/generateBid\.js|
-                 testing/functional/suts/.*/.*\.reply\.json
-             )$
+    exclude: (?x)^( testing/functional/suts/inference/data/seller-auction-service/scoreAd\.js| testing/functional/suts/.*/data/seller-auction-service/scoreAd\.js| testing/functional/suts/.*/data/buyer-bidding-service/generateBid\.js| testing/functional/suts/.*/.*\.reply\.json )$
 
 - repo: https://github.com/DavidAnson/markdownlint-cli2
   rev: v0.7.1
@@ -155,10 +135,10 @@ repos:
 - repo: https://github.com/tcort/markdown-link-check
   rev: v3.11.2
   hooks:
-    - id: markdown-link-check
-      args:
-      - -c
-      - .markdown-link-check.json
+  - id: markdown-link-check
+    args:
+    - -c
+    - .markdown-link-check.json
 
 - repo: local
   hooks:
@@ -206,6 +186,4 @@ repos:
     - -sn
     - --rcfile=.pylintrc
     - --fail-on=I
-    exclude: (?x)^(
-                 google_internal/.*/preprocessor/.*\.py
-             )$
+    exclude: (?x)^( google_internal/.*/preprocessor/.*\.py )$

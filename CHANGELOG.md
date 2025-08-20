@@ -2,6 +2,146 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## 4.10.0 (2025-08-14)
+
+### Features
+
+* [BYOB] Parse multiple bids per IG to support K-Anonymity
+* [BYOB] Use batch execute with max pending batches limit, start_by, and finish_by timeouts
+* [fDO enrollment check] Add libtld library to extract eTLD+1 from fDO urls
+* add AWS log based metric for errors and crashes
+* add azure to otel zone and region config
+* Add cancellation logic to gRPC sidecar
+* Add cancellation propagation in inference modules
+* Add central context manager for GRPC request cancellation
+* Add chaffing V2 changes on buyer side
+* Add chaffing v2 changes on seller side
+* Add client-side cancellation to inference
+* Add enable_sampled_debug_reporting flag
+* Add forDebuggingOnlyInCooldownOrLockout to generateBid()
+* Add forDebuggingOnlyInCooldownOrLockout to scoreAd()
+* add GCP log based metric for errors and crashes
+* Add GCP/AWS alert on server request failure rate
+* Add gRPC deadline for inference service
+* add inference onnxruntime to GCP
+* Add IPv6 Support in GCP
+* Add onnx binary by default in gcp builds
+* Add request age metric on SFE
+* add roma dashboard for AWS
+* Add roma metrics dashboard for GCP
+* add roma metrics for auction service
+* add roma metrics to bidding server
+* add roma queue duration metric in AWS
+* add roma queue duration metric in GCP
+* Add runtime flag for specifying SFE <> BFE compression algo
+* Add terraform variables to force AWS availability zones (credit to fhoering)
+* add udf initialization duration metric to track retry time
+* Add zstd compression to B&A
+* Adds support for PAS Ghost candidates in top level auction
+* Allow setting DNS records in separate GCP project (credit to davidae)
+* Allow to use Intel AMX/TDX for bidding server in GCP
+* Apply normal distribution to chaffing V2 for num chaff requests
+* Asynchronize inference client
+* Asynchronize inference sidecar
+* **azure:** add support for azure build bazel build flags
+* **azure:** Added comment to Azure documentation.
+* **azure:** Added more descriptive comments.
+* **azure:** Adding Availability Zones to Azure Kubernetes Service Cluster with virtual ACI nodes via IaC (Terraform).
+* **azure:** Adding Parc ConfigMap Hash to the backend service deployment.
+* **azure:** Adding service name to gRPC-Route Resource.
+* **azure:** b&a docker image build scripts for azure
+* **azure:** Bring Your Own Certificate approach using IaC (Terraform).
+* **azure:** Change DNS Record Name to include Terraform Workspace as env variable name.
+* **azure:** Create a public demo repo for B&A on Azure via IaC (Terraform).
+* **azure:** Create Helm Charts for Parc Server, OTel-collectors, and the B&A servers.
+* **azure:** Create Kubernetes Services to enable traffic to bidding and auction servers pods via IaC (Terraform).
+* **azure:** Create region-specific virtual network and subnets with dynamic delegation via IaC (Terraform).
+* **azure:** Created scalable and customizable multi-region and multi-buyer stacks via IaC (Terraform).
+* **azure:** Creating namespace within AKS cluster
+* **azure:** Deploying Virtual ACI Nodes to provide Confidential Compute via IaC (Terraform)
+* **azure:** Eliminate manual creation of namespace and allowing helm-charts to make on creation.
+* **azure:** Enable Horizontal Pod Autoscaling on bidding and auction servers via IaC (Terraform)
+* **azure:** Enabled TLS encryption and offloading to the AKS Cluster and a Frontend Health Check Policy via IaC (Terraform).
+* **azure:** Implement Azure Manged Prometheus and Managed Grafana via IaC (Terraform).
+* **azure:** Implement buyer and seller modules to cohesively run all of the components as needed via IaC (Terraform).
+* **azure:** Implement Kubernetes Deployments for bidding and auction servers via IaC (Terraform).
+* **azure:** Implement OTel Collector service, deployment, and ConfigMap for telemetry data collection via IaC (Terraform).
+* **azure:** Implement Parc service, deployment, and ConfigMap for getParameter integration via IaC (Terraform).
+* **azure:** Modifying the infrastructure_parameters.json to use the long term bidding and auction resource group via IaC (Terraform).
+* **azure:** Moving up some minor variables to top level and adding to infrastructure_parameters.json via IaC (Terraform).
+* **azure:** Provision AKS cluster with Log Analytics and Key Vault integration for bidding and auction servers via IaC (Terraform).
+* **azure:** Provision IAM roles for virtual nodes, application gateway for containers, and TLS certificates via IaC (Terraform).
+* **azure:** Provision regional application gateway for containers (AGfC) and integrate with traffic manager and AKS via IaC (Terraform).
+* **azure:** Several small improvements and fixes.
+* **azure:** TLS fix in order to use the combined Let's Encrypt and BYOC approach via IaC (Terraform).
+* **azure:** Update Azure Application Insights Metrics Dashboards to include service name, instance id, and region via IaC (Terraform).
+* **azure:** Update multi-region.tf to include the frontend and backend cpu and memory variables via IaC (Terraform).
+* **azure:** Update Parc Implementation to reflect latest Parc Server team changes via IaC (Terraform).
+* **azure:** Update the Horizontal Pod Autoscaler YAMLs in the B&A Servers Helm Chart via IaC (Terraform).
+* **azure:** Update the Infrastructure Parameters JSON to match shared Let's Encrypt TLS Cert via IaC (Terraform).
+* **azure:** Update the managed prometheus and grafana to be enabled by a flag via IaC (Terraform).
+* **azure:** Updating B&A Server images to include Parc internal endpoint address as currently configured in the IaC (Terraform).
+* Default enable_debug_reporting to true for requests from browser
+* Enable BYOB batching feature for AWS
+* Enable ONNX Sidecar for B&A prod build.
+* enable prod_debug flag for Android request debugging
+* log output parsing errors for inference proto parsing
+* Only consider debug urls sent from Auction to SFE for MAX_ALLOWED_SIZE_ALL_DEBUG_URLS_KB check
+* PARC blob storage client migration
+* parc param fetcher
+* Partition bidding.business_logic.debug_url_count by status
+* Populate sampled debug reports for single-seller auctions in client response
+* Propagate server context through sidecar
+* Publish metric if invalid component auctions in top level auction input
+* Remove old SFE <> BFE request/response format code paths
+* Sample buyer debug urls for component auctions in SFE
+* Sample buyer debug urls in Bidding
+* Sample seller debug urls for component auctions in Auction service
+* Sample seller debug urls for single-seller auctions in Auction service
+* Skip chaffing for 99% of requests on SFE
+* Support custom gcp ssl policies in frontend load balancer (credit to maciejkowalczyk)
+* support proto in new request parser and tensorflow parser
+* support request json to proto parsing (for tensorflow)
+* Update GCP Cloud Build to build local testing image
+* Upgrade google terraform plugin to 5.36.0
+* Upgrade to build-system 1.0.0
+* use runtime flag to enable inference proto parsing
+
+
+### Bug Fixes
+
+* [fDO attestation] libtld util needs to account for the case where subdomain exists & doesn't exist in the URL
+* add prefix to parc param fetch
+* better documentation for GCP service account naming
+* byob flags for local testing
+* check ok() on StatusOr in prev_wins_ms code path
+* Construct browser signals with rapidjson
+* Disable bash xtrace for Dockerfile.libtld bazel target
+* Disable BYOB in prod build
+* Fix asan warning for model reset
+* Fix incorrect param position
+* Fix incorrect test suite naming for the ONNX sidecar
+* Fix inference.request.duration_ms_by_model graph in GCP dashboard
+* fix multiple logging of roma metrics
+* Fix readonly variable assignment
+* Fixes a potential race in BFE
+* Move TF metrics from seller to roma dashboard due to the dashboard widget limit
+* Pass ROMA timeout parameter to stop UDF execution after timeout
+* Potential crash in auction service due to data race
+* reinstate blocking counter for cpio param fetch
+* Stop processing on failure to decrypt response
+* Typo in k-anon microbenchmark BUILD rule
+* typos in TF metrics dashboards
+* Update GCP inference dashboard
+* Update GCP seller dashboard
+* Upgrade AWS linux kernel to optimize BYOB
+* Use `cquery` to fix local tests
+
+
+### Documentation
+
+* AWS Enclave CPU and Mem Reqs in TF Config
+
 ## 4.9.0 (2025-04-16)
 
 

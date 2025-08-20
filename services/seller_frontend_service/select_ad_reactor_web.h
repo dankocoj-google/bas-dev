@@ -42,7 +42,8 @@ class SelectAdReactorForWeb : public SelectAdReactor {
       bool enable_cancellation = false, bool enable_kanon = false,
       bool enable_buyer_private_aggregate_reporting = false,
       int per_adtech_paapi_contributions_limit = 100, bool fail_fast = true,
-      int max_buyers_solicited = 2);
+      int max_buyers_solicited = 2,
+      CompressionType sfe_bfe_compression_algo = CompressionType::kGzip);
   virtual ~SelectAdReactorForWeb() = default;
 
   // SelectAdReactorForWeb is neither copyable nor movable.

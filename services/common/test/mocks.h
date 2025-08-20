@@ -32,11 +32,13 @@
 #include "public/query/v2/get_values_v2.grpc.pb.h"
 #include "public/query/v2/get_values_v2.pb.h"
 #include "services/auction_service/score_ads_reactor.h"
+#include "services/bidding_service/byob/proto_utils.h"
 #include "services/bidding_service/cddl_spec_cache.h"
 #include "services/bidding_service/egress_features/egress_feature.h"
 #include "services/bidding_service/egress_schema_cache.h"
 #include "services/bidding_service/generate_bids_reactor.h"
 #include "services/bidding_service/protected_app_signals_generate_bids_reactor.h"
+#include "services/common/attestation/adtech_enrollment_cache.h"
 #include "services/common/clients/auction_server/scoring_async_client.h"
 #include "services/common/clients/bidding_server/bidding_async_client.h"
 #include "services/common/clients/buyer_frontend_server/buyer_frontend_async_client.h"
@@ -58,6 +60,8 @@ namespace privacy_sandbox::bidding_auction_servers {
 using ::google::chrome::kanonymityquery::v1::KAnonymousSetsQueryService;
 using ::google::chrome::kanonymityquery::v1::ValidateHashesRequest;
 using ::google::chrome::kanonymityquery::v1::ValidateHashesResponse;
+using ::wireless::android::adservices::mdd::adtech_enrollment::chrome::
+    PrivacySandboxAttestationsProto;
 
 class MockBuyerFrontEnd : public BuyerFrontEnd::CallbackService {
  public:
@@ -200,20 +204,32 @@ using KVAsyncClientMock =
     AsyncClientMock<ObliviousGetValuesRequest, google::api::HttpBody,
                     GetValuesRequest, GetValuesResponse>;
 
-template <typename ServiceRequest, typename ServiceResponse>
+template <typename BatchRequest, typename ServiceRequest,
+          typename ServiceResponse>
 class ByobDispatchClientMock
-    : public ByobDispatchClient<ServiceRequest, ServiceResponse> {
+    : public ByobDispatchClient<BatchRequest, ServiceRequest, ServiceResponse> {
  public:
   MOCK_METHOD(absl::Status, LoadSync, (std::string version, std::string code),
               (override));
-  MOCK_METHOD(absl::Status, Execute,
-              (const ServiceRequest& request, absl::Duration timeout,
-               absl::AnyInvocable<void(absl::StatusOr<ServiceResponse>) &&>),
-              (override));
+  MOCK_METHOD(
+      absl::Status, Execute,
+      (const ServiceRequest& request, absl::Duration timeout,
+       absl::AnyInvocable<
+           void(absl::StatusOr<ByobDispatchResponse<ServiceResponse>>) &&>),
+      (override));
+  MOCK_METHOD(
+      absl::Status, ExecuteManyWithSharedTimeouts,
+      (BatchRequest & raw_request, ServiceRequest common_request,
+       absl::Duration start_timeout, absl::Duration execution_timeout,
+       absl::AnyInvocable<void(std::vector<absl::StatusOr<
+                                   ByobDispatchResponse<ServiceResponse>>>) &&>
+           callback),
+      (override));
 };
 
 using GenerateBidByobDispatchClientMock =
-    ByobDispatchClientMock<roma_service::GenerateProtectedAudienceBidRequest,
+    ByobDispatchClientMock<GenerateBidsRequest::GenerateBidsRawRequest,
+                           roma_service::GenerateProtectedAudienceBidRequest,
                            roma_service::GenerateProtectedAudienceBidResponse>;
 
 // Utility class to be used by anything that relies on an HttpFetcherAsync.
@@ -484,10 +500,12 @@ class MockGenerateBidsReactor : public GenerateBidsReactor {
       std::unique_ptr<BiddingBenchmarkingLogger> benchmarkingLogger,
       server_common::KeyFetcherManagerInterface* key_fetcher_manager,
       CryptoClientWrapperInterface* crypto_client,
-      const BiddingServiceRuntimeConfig& runtime_config)
+      const BiddingServiceRuntimeConfig& runtime_config,
+      AdtechEnrollmentCacheInterface* adtech_attestation_cache)
       : GenerateBidsReactor(context, dispatcher, request, response,
                             std::move(benchmarkingLogger), key_fetcher_manager,
-                            crypto_client_, runtime_config) {}
+                            crypto_client_, runtime_config,
+                            adtech_attestation_cache) {}
   MOCK_METHOD(void, Execute, (), (override));
 };
 
@@ -590,6 +608,17 @@ class MockAsyncProvider : public AsyncProvider<Params, Provision> {
            on_done,
        absl::Duration timeout, RequestContext context),
       (const, override));
+};
+
+class AdtechEnrollmentCacheMock : public AdtechEnrollmentCacheInterface {
+ public:
+  AdtechEnrollmentCacheMock() : AdtechEnrollmentCacheInterface() {}
+
+  MOCK_METHOD(void, Refresh,
+              (std::unique_ptr<const PrivacySandboxAttestationsProto>),
+              (override));
+
+  MOCK_METHOD(bool, Query, (absl::string_view), (override));
 };
 
 }  // namespace privacy_sandbox::bidding_auction_servers

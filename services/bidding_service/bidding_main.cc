@@ -41,6 +41,7 @@
 #include "services/bidding_service/bidding_v8_constants.h"
 #include "services/bidding_service/buyer_code_fetch_manager.h"
 #include "services/bidding_service/byob/buyer_code_fetch_manager_byob.h"
+#include "services/bidding_service/byob/byob_batching_config.pb.h"
 #include "services/bidding_service/byob/generate_bid_byob_dispatch_client.h"
 #include "services/bidding_service/cddl_spec_cache.h"
 #include "services/bidding_service/code_wrapper/buyer_code_wrapper.h"
@@ -52,11 +53,14 @@
 #include "services/bidding_service/inference/periodic_model_fetcher.h"
 #include "services/bidding_service/protected_app_signals_generate_bids_reactor.h"
 #include "services/bidding_service/runtime_flags.h"
+#include "services/common/attestation/adtech_enrollment_cache.h"
+#include "services/common/attestation/adtech_enrollment_fetcher.h"
 #include "services/common/blob_fetch/blob_fetcher.h"
 #include "services/common/clients/code_dispatcher/v8_dispatch_client.h"
 #include "services/common/clients/config/trusted_server_config_client.h"
 #include "services/common/clients/config/trusted_server_config_client_util.h"
 #include "services/common/clients/http/multi_curl_http_fetcher_async_no_queue.h"
+#include "services/common/concurrent/thread_pool_executor.h"
 #include "services/common/data_fetch/periodic_bucket_fetcher_metrics.h"
 #include "services/common/data_fetch/periodic_code_fetcher.h"
 #include "services/common/data_fetch/version_util.h"
@@ -132,6 +136,13 @@ ABSL_FLAG(std::optional<int>, curl_bidding_queue_max_wait_ms, 1000,
 ABSL_FLAG(std::optional<int>, curl_bidding_work_queue_length, 10,
           "Maximum number of outstanding curl requests that are allowed to "
           "wait for processing");
+ABSL_FLAG(
+    std::optional<std::string>, byob_batching_config, std::nullopt,
+    "Json string to specify config for batching UDF executions within a "
+    "request. The requests will not be batched if this is not specified.");
+ABSL_FLAG(std::optional<bool>, enable_fdo_attestation, true,
+          "If true, fDO destinations given by AdTechs are attested against API "
+          "enrollment list.");
 
 namespace privacy_sandbox::bidding_auction_servers {
 
@@ -223,11 +234,18 @@ absl::StatusOr<TrustedServersConfigClient> GetConfigClient(
                         INFERENCE_SIDECAR_RUNTIME_CONFIG);
   config_client.SetFlag(FLAGS_inference_sidecar_rlimit_mb,
                         INFERENCE_SIDECAR_RLIMIT_MB);
+  config_client.SetFlag(FLAGS_inference_model_registration_timeout_ms,
+                        INFERENCE_MODEL_REGISTRATION_TIMEOUT_MS);
+  config_client.SetFlag(FLAGS_inference_model_execution_timeout_ms,
+                        INFERENCE_MODEL_EXECUTION_TIMEOUT_MS);
+  config_client.SetFlag(FLAGS_inference_model_paths_request_timeout_ms,
+                        INFERENCE_MODEL_PATHS_REQUEST_TIMEOUT_MS);
   config_client.SetFlag(
       FLAGS_bidding_tcmalloc_background_release_rate_bytes_per_second,
       BIDDING_TCMALLOC_BACKGROUND_RELEASE_RATE_BYTES_PER_SECOND);
   config_client.SetFlag(FLAGS_bidding_tcmalloc_max_total_thread_cache_bytes,
                         BIDDING_TCMALLOC_MAX_TOTAL_THREAD_CACHE_BYTES);
+  config_client.SetFlag(FLAGS_byob_batching_config, BYOB_BATCHING_CONFIG);
   config_client.SetFlag(FLAGS_parc_addr, PARC_ADDR);
   config_client.SetFlag(FLAGS_curl_bidding_num_workers,
                         CURL_BIDDING_NUM_WORKERS);
@@ -235,6 +253,7 @@ absl::StatusOr<TrustedServersConfigClient> GetConfigClient(
                         CURL_BIDDING_QUEUE_MAX_WAIT_MS);
   config_client.SetFlag(FLAGS_curl_bidding_work_queue_length,
                         CURL_BIDDING_WORK_QUEUE_LENGTH);
+  config_client.SetFlag(FLAGS_enable_fdo_attestation, ENABLE_FDO_ATTESTATION);
 
   PS_RETURN_IF_ERROR(
       MaybeInitConfigClient(absl::GetFlag(FLAGS_init_config_client),
@@ -330,6 +349,23 @@ DispatchConfig GetV8DispatchConfig(
       absl::SetFlag(
           &FLAGS_inference_sidecar_rlimit_mb,
           GetInt64ParameterSafe(config_client, INFERENCE_SIDECAR_RLIMIT_MB));
+      absl::SetFlag(
+          &FLAGS_inference_model_registration_timeout_ms,
+          GetInt64ParameterSafe(config_client,
+                                INFERENCE_MODEL_REGISTRATION_TIMEOUT_MS));
+      absl::SetFlag(&FLAGS_inference_model_execution_timeout_ms,
+                    GetInt64ParameterSafe(
+                        config_client, INFERENCE_MODEL_EXECUTION_TIMEOUT_MS));
+      absl::SetFlag(
+          &FLAGS_inference_model_paths_request_timeout_ms,
+          GetInt64ParameterSafe(config_client,
+                                INFERENCE_MODEL_PATHS_REQUEST_TIMEOUT_MS));
+      absl::SetFlag(
+          &FLAGS_inference_enable_proto_parsing,
+          config_client.GetBooleanParameter(INFERENCE_ENABLE_PROTO_PARSING));
+      absl::SetFlag(&FLAGS_inference_enable_cancellation_at_bidding,
+                    config_client.GetBooleanParameter(
+                        INFERENCE_ENABLE_CANCELLATION_AT_BIDDING));
       inference::SandboxExecutor& inference_executor = inference::Executor();
       CHECK_EQ(inference_executor.StartSandboxee().code(),
                absl::StatusCode::kOk);
@@ -431,29 +467,53 @@ absl::Status RunServer() {
       udf_config.enable_buyer_debug_url_generation();
   const bool enable_private_aggregate_reporting =
       udf_config.enable_private_aggregate_reporting();
+  const bool byob_mode = UdfConfigHasByob(udf_config);
+
+  // Declared here to be used in runtime config.
+  bidding_service::ByobBatchingConfig byob_batching_config;
+  if (byob_mode && config_client.HasParameter("BYOB_BATCHING_CONFIG") &&
+      !config_client.GetStringParameter(BYOB_BATCHING_CONFIG).empty()) {
+    absl::Status result = google::protobuf::util::JsonStringToMessage(
+        config_client.GetStringParameter(BYOB_BATCHING_CONFIG).data(),
+        &byob_batching_config);
+    PS_RETURN_IF_ERROR(result)
+        << "Could not parse BYOB_BATCHING_CONFIG JsonString: "
+        << config_client.GetStringParameter(BYOB_BATCHING_CONFIG).data()
+        << "to a proto message: " << result.message();
+  }
 
   std::unique_ptr<GenerateBidByobDispatchClient> byob_client;
   std::unique_ptr<V8Dispatcher> v8_dispatcher;
   std::unique_ptr<V8DispatchClient> v8_client;
   std::unique_ptr<BuyerCodeFetchManager> udf_fetcher;
+  std::unique_ptr<ThreadPoolExecutor> thread_pool_executor;
 
   GenerateBidsReactorFactory generate_bids_reactor_factory;
   ProtectedAppSignalsGenerateBidsReactorFactory
       protected_app_signals_generate_bids_reactor_factory;
 
-  if (UdfConfigHasByob(udf_config)) {
+  if (byob_mode) {
     PS_CHECK(!PS_IS_PROD_BUILD)
         << "BYOB is not available in prod builds right now";
     PS_CHECK(enable_protected_audience, SystemLogContext())
         << kProtectedAudienceMustBeEnabled;
     PS_CHECK(!enable_protected_app_signals, SystemLogContext())
         << kProtectedAppSignalsMustBeDisabled;
-
-    PS_ASSIGN_OR_RETURN(auto temp_client,
-                        GenerateBidByobDispatchClient::Create(
-                            config_client.GetIntParameter(UDF_NUM_WORKERS)));
-    byob_client =
-        std::make_unique<GenerateBidByobDispatchClient>(std::move(temp_client));
+    if (byob_batching_config.use_separate_threadpool()) {
+      thread_pool_executor =
+          std::make_unique<ThreadPoolExecutor>(gpr_cpu_num_cores());
+      PS_ASSIGN_OR_RETURN(
+          byob_client, GenerateBidByobDispatchClient::Create(
+                           thread_pool_executor.get(),
+                           byob_batching_config.max_pending_batches_in_pool(),
+                           config_client.GetIntParameter(UDF_NUM_WORKERS)));
+    } else {
+      PS_ASSIGN_OR_RETURN(
+          byob_client, GenerateBidByobDispatchClient::Create(
+                           executor.get(),
+                           byob_batching_config.max_pending_batches_in_pool(),
+                           config_client.GetIntParameter(UDF_NUM_WORKERS)));
+    }
 
     udf_fetcher = std::make_unique<BuyerCodeFetchManagerByob>(
         executor.get(), http_fetcher_async.get(), byob_client.get(),
@@ -571,7 +631,7 @@ absl::Status RunServer() {
       .tee_kv_server_grpc_arg_default_authority =
           std::move(tee_kv_server_grpc_arg_default_authority),
       .enable_buyer_debug_url_generation = enable_buyer_debug_url_generation,
-      .roma_timeout_ms = absl::StrCat(
+      .roma_timeout_duration = absl::StrCat(
           config_client.GetStringParameter(ROMA_TIMEOUT_MS).data(), "ms"),
       .is_protected_app_signals_enabled = enable_protected_app_signals,
       .is_protected_audience_enabled = enable_protected_audience,
@@ -590,7 +650,10 @@ absl::Status RunServer() {
           per_adtech_paapi_contributions_limit,
       .enable_cancellation = absl::GetFlag(FLAGS_enable_cancellation),
       .enable_kanon = absl::GetFlag(FLAGS_enable_kanon),
-      .enable_temporary_unlimited_egress = enable_temporary_unlimited_egress};
+      .enable_temporary_unlimited_egress = enable_temporary_unlimited_egress,
+      .enable_byob_batching = byob_batching_config.ByteSizeLong() > 0,
+      .byob_batch_start_timeout =
+          absl::Milliseconds(byob_batching_config.batch_start_timeout_ms())};
 
   PS_RETURN_IF_ERROR(udf_fetcher->ConfigureRuntimeDefaults(runtime_config))
       << "Could not init runtime defaults for udf fetching.";
@@ -624,6 +687,23 @@ absl::Status RunServer() {
           enable_protected_app_signals, enable_protected_audience,
           egress_schema_fetch_config, udf_config));
 
+  std::unique_ptr<AdtechEnrollmentCache> attestation_cache = nullptr;
+  std::unique_ptr<AdtechEnrollmentFetcher> enrollment_fetcher = nullptr;
+  if (config_client.GetBooleanParameter(ENABLE_FDO_ATTESTATION)) {
+    attestation_cache = std::make_unique<AdtechEnrollmentCache>();
+    enrollment_fetcher = std::make_unique<AdtechEnrollmentFetcher>(
+        /* url_endpoint = */
+        "https://www.gstatic.com/privacy_sandbox/enrollment_data/"
+        "enrollments_web.binpb",
+        /* fetch_period = */ absl::Hours(24), http_fetcher_async.get(),
+        executor.get(), /* time_out_ms = */ absl::Milliseconds(10000),
+        attestation_cache.get());
+  }
+  if (enrollment_fetcher) {
+    PS_RETURN_IF_ERROR(enrollment_fetcher->Start())
+        << "Failed to start Adtech Enrollment Fetcher for fDO attestation.";
+  }
+
   PS_VLOG(5) << "Creating bidding service instance";
   BiddingService bidding_service(
       std::move(generate_bids_reactor_factory),
@@ -635,7 +715,8 @@ absl::Status RunServer() {
       std::move(protected_app_signals_generate_bids_reactor_factory),
       /*ad_retrieval_async_client=*/nullptr, /*kv_async_client=*/nullptr,
       std::move(egress_schema_caches.egress_schema_cache),
-      std::move(egress_schema_caches.unlimited_egress_schema_cache));
+      std::move(egress_schema_caches.unlimited_egress_schema_cache),
+      attestation_cache.get());
 
   PS_VLOG(5) << "Done creating bidding service instance";
   grpc::EnableDefaultHealthCheckService(true);

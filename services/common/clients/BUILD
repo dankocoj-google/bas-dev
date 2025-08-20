@@ -35,6 +35,15 @@ cc_library(
 )
 
 cc_library(
+    name = "cancellable_grpc_context_manager",
+    hdrs = ["cancellable_grpc_context_manager.h"],
+    linkstatic = True,
+    deps = [
+        "@com_github_grpc_grpc//:grpc++",
+    ],
+)
+
+cc_library(
     name = "client_params_template",
     hdrs = ["client_params.h"],
     # header only library for interface
@@ -69,6 +78,17 @@ cc_test(
     deps = [
         ":client_params_template",
         "//services/common/test:random",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "cancellable_grpc_context_manager_test",
+    size = "small",
+    srcs = ["cancellable_grpc_context_manager_test.cc"],
+    deps = [
+        ":cancellable_grpc_context_manager",
+        "//services/common/clients/code_dispatcher:request_context",
         "@com_google_googletest//:gtest_main",
     ],
 )

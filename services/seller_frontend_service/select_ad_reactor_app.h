@@ -40,7 +40,8 @@ class SelectAdReactorForApp : public SelectAdReactor {
       const RandomNumberGeneratorFactory& rng_factory,
       bool enable_cancellation = false, bool enable_kanon = false,
       bool enable_buyer_private_aggregate_reporting = false,
-      int per_adtech_paapi_contributions_limit = 0, bool fail_fast = true);
+      int per_adtech_paapi_contributions_limit = 0, bool fail_fast = true,
+      CompressionType sfe_bfe_compression_algo = CompressionType::kGzip);
   virtual ~SelectAdReactorForApp() = default;
 
   // SelectAdReactorForApp is neither copyable nor movable.

@@ -23,6 +23,7 @@
 #include "api/bidding_auction_servers.grpc.pb.h"
 #include "services/bidding_service/base_generate_bids_reactor.h"
 #include "services/bidding_service/egress_schema_cache.h"
+#include "services/common/attestation/adtech_enrollment_cache.h"
 #include "services/common/clients/async_grpc/default_async_grpc_client.h"
 #include "services/common/clients/http/multi_curl_http_fetcher_async_no_queue.h"
 #include "services/common/clients/kv_server/kv_async_client.h"
@@ -41,7 +42,8 @@ using GenerateBidsReactorFactory = absl::AnyInvocable<BaseGenerateBidsReactor<
     GenerateBidsResponse* response,
     server_common::KeyFetcherManagerInterface* key_fetcher_manager,
     CryptoClientWrapperInterface* crypto_client,
-    const BiddingServiceRuntimeConfig& runtime_config)>;
+    const BiddingServiceRuntimeConfig& runtime_config,
+    AdtechEnrollmentCacheInterface* adtech_attestation_cache)>;
 
 using ProtectedAppSignalsGenerateBidsReactorFactory = absl::AnyInvocable<
     BaseGenerateBidsReactor<GenerateProtectedAppSignalsBidsRequest,
@@ -78,7 +80,8 @@ class BiddingService final : public Bidding::CallbackService {
       std::unique_ptr<KVAsyncClient> ad_retrieval_async_client = nullptr,
       std::unique_ptr<KVAsyncClient> kv_async_client = nullptr,
       std::unique_ptr<EgressSchemaCache> egress_schema_cache = nullptr,
-      std::unique_ptr<EgressSchemaCache> limited_egress_schema_cache = nullptr)
+      std::unique_ptr<EgressSchemaCache> limited_egress_schema_cache = nullptr,
+      AdtechEnrollmentCacheInterface* adtech_attestation_cache = nullptr)
       : generate_bids_reactor_factory_(
             std::move(generate_bids_reactor_factory)),
         key_fetcher_manager_(std::move(key_fetcher_manager)),
@@ -89,7 +92,8 @@ class BiddingService final : public Bidding::CallbackService {
         ad_retrieval_async_client_(std::move(ad_retrieval_async_client)),
         kv_async_client_(std::move(kv_async_client)),
         egress_schema_cache_(std::move(egress_schema_cache)),
-        limited_egress_schema_cache_(std::move(limited_egress_schema_cache)) {
+        limited_egress_schema_cache_(std::move(limited_egress_schema_cache)),
+        adtech_attestation_cache_(adtech_attestation_cache) {
     if (ad_retrieval_async_client_ == nullptr &&
         !runtime_config_.tee_ad_retrieval_kv_server_addr.empty()) {
       auto ad_retrieval_stub =
@@ -152,6 +156,7 @@ class BiddingService final : public Bidding::CallbackService {
   std::unique_ptr<KVAsyncClient> kv_async_client_;
   std::unique_ptr<EgressSchemaCache> egress_schema_cache_;
   std::unique_ptr<EgressSchemaCache> limited_egress_schema_cache_;
+  AdtechEnrollmentCacheInterface* adtech_attestation_cache_;
 };
 
 }  // namespace privacy_sandbox::bidding_auction_servers

@@ -33,7 +33,8 @@ struct Error {
     MODEL_NOT_FOUND = 2,
     MODEL_EXECUTION = 3,
     OUTPUT_PARSING = 4,
-    GRPC = 5
+    GRPC = 5,
+    CANCELLED = 6
   };
 
   // The type of error that occurred

@@ -21,6 +21,7 @@
 
 #include "absl/status/statusor.h"
 #include "proto/inference_sidecar.pb.h"
+#include "utils/cancellation_util.h"
 #include "utils/log.h"
 
 namespace privacy_sandbox::bidding_auction_servers::inference {
@@ -38,13 +39,19 @@ class ModuleInterface {
   // Executes inference on a registered ML model.
   virtual absl::StatusOr<PredictResponse> Predict(
       const PredictRequest& request,
-      const RequestContext& request_context = RequestContext()) = 0;
+      const RequestContext& request_context = RequestContext(),
+      const CancellableServerContext& server_context =
+          EmptyCancellableServerContext()) = 0;
   // Registers a new model.
   virtual absl::StatusOr<RegisterModelResponse> RegisterModel(
-      const RegisterModelRequest& request) = 0;
+      const RegisterModelRequest& request,
+      const CancellableServerContext& server_context =
+          EmptyCancellableServerContext()) = 0;
   // Delete an existing model.
   virtual absl::StatusOr<DeleteModelResponse> DeleteModel(
-      const DeleteModelRequest& request) = 0;
+      const DeleteModelRequest& request,
+      const CancellableServerContext& server_context =
+          EmptyCancellableServerContext()) = 0;
 };
 
 }  // namespace privacy_sandbox::bidding_auction_servers::inference

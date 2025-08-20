@@ -28,6 +28,7 @@
 #include "public/applications/pas/retrieval_response_parser.h"
 #include "services/bidding_service/bidding_v8_constants.h"
 #include "services/bidding_service/code_wrapper/buyer_code_wrapper.h"
+#include "services/bidding_service/inference/inference_flags.h"
 #include "services/bidding_service/utils/egress.h"
 #include "services/bidding_service/utils/validation.h"
 #include "services/common/feature_flags.h"
@@ -202,7 +203,9 @@ ProtectedAppSignalsGenerateBidsReactor::ProtectedAppSignalsGenerateBidsReactor(
               ? AuctionScope::AUCTION_SCOPE_SINGLE_SELLER
               // Only server component auctions implemented for
               // PAS Auctions.
-              : AuctionScope::AUCTION_SCOPE_SERVER_COMPONENT_MULTI_SELLER) {
+              : AuctionScope::AUCTION_SCOPE_SERVER_COMPONENT_MULTI_SELLER),
+      cancellable_grpc_context_manager_(
+          std::make_shared<CancellableGrpcContextManager>()) {
   DCHECK(ad_retrieval_async_client_) << "Missing: KV server Async GRPC client";
   PS_CHECK_OK(
       [this]() {
@@ -401,9 +404,12 @@ ProtectedAppSignalsGenerateBidsReactor::CreateGenerateBidsRequest(
       .handler_name = kDispatchHandlerFunctionNameWithCodeWrapper,
       .input = std::move(input),
       .metadata = RomaSharedContextWithMetric<google::protobuf::Message>(
-          request_, roma_request_context_factory_.Create(), log_context_),
+          request_,
+          roma_request_context_factory_.Create(
+              cancellable_grpc_context_manager_),
+          log_context_),
   };
-  request.tags[kRomaTimeoutTag] = roma_timeout_ms_;
+  request.tags[kRomaTimeoutTag] = roma_timeout_duration_;
   return request;
 }
 
@@ -610,7 +616,7 @@ DispatchRequest ProtectedAppSignalsGenerateBidsReactor::
           << "Roma request input to prepared data for ads retrieval: " << *i;
     }
   }
-  request.tags[kRomaTimeoutTag] = roma_timeout_ms_;
+  request.tags[kRomaTimeoutTag] = roma_timeout_duration_;
   return request;
 }
 
@@ -758,7 +764,41 @@ void ProtectedAppSignalsGenerateBidsReactor::Execute() {
   }
 }
 
-void ProtectedAppSignalsGenerateBidsReactor::OnDone() { delete this; }
+void ProtectedAppSignalsGenerateBidsReactor::OnCancel() {
+  if (absl::GetFlag(FLAGS_inference_enable_cancellation_at_bidding)) {
+    int64_t pending =
+        cancellable_grpc_context_manager_->GetPendingContextCount();
+    PS_VLOG(kPlain) << "GenerateBidsReactor::OnCancel called. Cancelling "
+                    << pending << " pending requests.";
+
+    cancellable_grpc_context_manager_->TryCancelAll();
+  }
+
+  // Cancels inherited contexts managed by superclass.
+  BaseGenerateBidsReactor<
+      GenerateProtectedAppSignalsBidsRequest,
+      GenerateProtectedAppSignalsBidsRequest::
+          GenerateProtectedAppSignalsBidsRawRequest,
+      GenerateProtectedAppSignalsBidsResponse,
+      GenerateProtectedAppSignalsBidsResponse::
+          GenerateProtectedAppSignalsBidsRawResponse>::OnCancel();
+}
+
+void ProtectedAppSignalsGenerateBidsReactor::OnDone() {
+  if (cancellable_grpc_context_manager_->GetPendingContextCount()) {
+    // If this log is triggering, it means either (1) you have forgotten
+    // to call to ReportRPCFinish() after the context is done after the call
+    // or (2) there is a significant error in the lifetime of the reactor.
+    // The reactor should outlive completion of all requests.
+    PS_LOG(ERROR, log_context_) << "OnDone triggered while requests pending.";
+  }
+
+  PS_VLOG(kPlain, log_context_)
+      << "Number of cancellable contexts used for inference: "
+      << cancellable_grpc_context_manager_->GetContextCount();
+
+  delete this;
+}
 
 void ProtectedAppSignalsGenerateBidsReactor::EncryptResponseAndFinish(
     grpc::Status status) {

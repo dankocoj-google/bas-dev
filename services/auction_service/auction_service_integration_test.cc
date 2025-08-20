@@ -356,7 +356,8 @@ TEST_F(AuctionServiceIntegrationTest, ScoresAdsWithCustomScoringLogic) {
           ScoreAdsResponse* response,
           server_common::KeyFetcherManagerInterface* key_fetcher_manager,
           CryptoClientWrapperInterface* crypto_client,
-          const AuctionServiceRuntimeConfig& runtime_config) {
+          const AuctionServiceRuntimeConfig& runtime_config,
+          AdtechEnrollmentCacheInterface* adtech_attestation_cache) {
         // You can manually flip this flag to turn benchmarking logging on or
         // off
         bool enable_benchmarking = true;
@@ -370,7 +371,7 @@ TEST_F(AuctionServiceIntegrationTest, ScoresAdsWithCustomScoringLogic) {
         return std::make_unique<ScoreAdsReactor>(
             context, client, request, response, std::move(benchmarking_logger),
             key_fetcher_manager, crypto_client, *async_reporter_,
-            runtime_config);
+            runtime_config, adtech_attestation_cache);
       };
   auto crypto_client = std::make_unique<MockCryptoClientWrapper>();
   SetupMockCryptoClientWrapper(*crypto_client);
@@ -382,7 +383,8 @@ TEST_F(AuctionServiceIntegrationTest, ScoresAdsWithCustomScoringLogic) {
   auction_service_runtime_config.default_score_ad_version = kScoreAdBlobVersion;
   AuctionService service(
       std::move(score_ads_reactor_factory), std::move(key_fetcher_manager),
-      std::move(crypto_client), auction_service_runtime_config);
+      std::move(crypto_client), auction_service_runtime_config,
+      /* adtech_attestation_cache = */ nullptr);
   auto result = StartLocalService(&service);
   auto stub = CreateServiceStub<Auction>(result.port);
 
@@ -434,7 +436,8 @@ TEST_F(AuctionServiceIntegrationTest, ScoresAdsDespiteNoScoringSignals) {
           ScoreAdsResponse* response,
           server_common::KeyFetcherManagerInterface* key_fetcher_manager,
           CryptoClientWrapperInterface* crypto_client,
-          const AuctionServiceRuntimeConfig& runtime_config) {
+          const AuctionServiceRuntimeConfig& runtime_config,
+          AdtechEnrollmentCacheInterface* adtech_attestation_cache) {
         // You can manually flip this flag to turn benchmarking logging on or
         // off
         bool enable_benchmarking = true;
@@ -448,7 +451,7 @@ TEST_F(AuctionServiceIntegrationTest, ScoresAdsDespiteNoScoringSignals) {
         return std::make_unique<ScoreAdsReactor>(
             context, client, request, response, std::move(benchmarking_logger),
             key_fetcher_manager, crypto_client, *async_reporter_,
-            runtime_config);
+            runtime_config, adtech_attestation_cache);
       };
   auto crypto_client = std::make_unique<MockCryptoClientWrapper>();
   SetupMockCryptoClientWrapper(*crypto_client);
@@ -460,7 +463,8 @@ TEST_F(AuctionServiceIntegrationTest, ScoresAdsDespiteNoScoringSignals) {
   auction_service_runtime_config.require_scoring_signals_for_scoring = false;
   AuctionService service(
       std::move(score_ads_reactor_factory), std::move(key_fetcher_manager),
-      std::move(crypto_client), auction_service_runtime_config);
+      std::move(crypto_client), auction_service_runtime_config,
+      /* adtech_attestation_cache = */ nullptr);
   auto result = StartLocalService(&service);
   auto stub = CreateServiceStub<Auction>(result.port);
 
@@ -518,7 +522,8 @@ void SellerCodeWrappingTestHelper(
           ScoreAdsResponse* response,
           server_common::KeyFetcherManagerInterface* key_fetcher_manager,
           CryptoClientWrapperInterface* crypto_client,
-          const AuctionServiceRuntimeConfig& runtime_config) {
+          const AuctionServiceRuntimeConfig& runtime_config,
+          AdtechEnrollmentCacheInterface* adtech_attestation_cache) {
         // You can manually flip this flag to turn benchmarking logging on or
         // off
         bool enable_benchmarking = true;
@@ -532,7 +537,7 @@ void SellerCodeWrappingTestHelper(
         return std::make_unique<ScoreAdsReactor>(
             context, client, request, response, std::move(benchmarking_logger),
             key_fetcher_manager, crypto_client, *async_reporter_,
-            runtime_config);
+            runtime_config, adtech_attestation_cache);
       };
 
   auto crypto_client = std::make_unique<MockCryptoClientWrapper>();
@@ -543,7 +548,8 @@ void SellerCodeWrappingTestHelper(
       CreateKeyFetcherManager(config_client, /*public_key_fetcher=*/nullptr);
   AuctionService service(
       std::move(score_ads_reactor_factory), std::move(key_fetcher_manager),
-      std::move(crypto_client), auction_service_runtime_config);
+      std::move(crypto_client), auction_service_runtime_config,
+      /* adtech_attestation_cache = */ nullptr);
   auto result = StartLocalService(&service);
   auto stub = CreateServiceStub<Auction>(result.port);
   grpc::ClientContext client_context;

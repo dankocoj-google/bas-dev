@@ -188,7 +188,7 @@ absl::Status PerformReportResult(
   DispatchRequest dispatch_request = GetReportResultDispatchRequest(
       dispatch_request_config, request_data, seller_device_signals_json);
   dispatch_request.tags[kRomaTimeoutTag] =
-      dispatch_request_config.roma_timeout_ms;
+      dispatch_request_config.roma_timeout_duration;
   std::vector<DispatchRequest> dispatch_requests = {
       std::move(dispatch_request)};
   return dispatcher.BatchExecute(dispatch_requests,

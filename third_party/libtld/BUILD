@@ -14,29 +14,6 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
-# Generates tld.h and tld_data.c by building libtld with the instructions: https://github.com/m2osw/libtld/blob/main/INSTALL.txt#building
-genrule(
-    name = "libtld_srcs",
-    srcs = [
-        ":Dockerfile.libtld",
-    ],
-    outs = [
-        "tld.cpp",
-        "tld_data.c",
-        "tld_domain_to_lowercase.c",
-        "tld_file.cpp",
-        "tld_strings.c",
-        "tld.h",
-        "tld_data.h",
-        "tld_file.h",
-    ],
-    cmd_bash = """
-set -o errexit
-cp $(SRCS) "$(RULEDIR)"
-docker buildx build --progress plain --target libtld-output --output="$(RULEDIR)" --file="$(RULEDIR)/Dockerfile.libtld" "$(RULEDIR)"
-""",
-)
-
 cc_library(
     name = "libtld",
     srcs = [
@@ -52,8 +29,7 @@ cc_library(
         "tld_file.h",
     ],
     include_prefix = "libtld",
+    tags = ["nolint"],
     visibility = ["//visibility:public"],
-    deps = [
-        ":libtld_srcs",
-    ],
+    deps = [],
 )

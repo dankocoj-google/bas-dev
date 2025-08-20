@@ -14,7 +14,9 @@
 
 #include "services/bidding_service/generate_bids_binary_reactor.h"
 
+#include <algorithm>
 #include <utility>
+#include <vector>
 
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
@@ -32,74 +34,23 @@ inline constexpr absl::Duration kDefaultGenerateBidExecutionTimeout =
     absl::Seconds(1);
 
 roma_service::GenerateProtectedAudienceBidRequest
-BuildProtectedAudienceBidRequest(RawRequest& raw_request, bool logging_enabled,
-                                 bool debug_reporting_enabled) {
+BuildCommonProtectedAudienceBidRequest(RawRequest& raw_request,
+                                       bool logging_enabled,
+                                       bool debug_reporting_enabled) {
   roma_service::GenerateProtectedAudienceBidRequest bid_request;
+
+  // Populate auction and buyer signals.
   bid_request.set_auction_signals(
       std::move(*raw_request.mutable_auction_signals()));
   bid_request.set_per_buyer_signals(
       std::move(*raw_request.mutable_buyer_signals()));
+
   // Populate server metadata.
   roma_service::ServerMetadata* server_metadata =
       bid_request.mutable_server_metadata();
   server_metadata->set_logging_enabled(logging_enabled);
   server_metadata->set_debug_reporting_enabled(debug_reporting_enabled);
   return bid_request;
-}
-
-void UpdateProtectedAudienceBidRequest(
-    roma_service::GenerateProtectedAudienceBidRequest& bid_request,
-    const RawRequest& raw_request, IGForBidding& ig_for_bidding,
-    int32_t multi_bid_limit) {
-  // Populate interest group.
-  roma_service::ProtectedAudienceInterestGroup* interest_group =
-      bid_request.mutable_interest_group();
-  *interest_group->mutable_name() = std::move(*ig_for_bidding.mutable_name());
-  interest_group->mutable_trusted_bidding_signals_keys()->Swap(
-      ig_for_bidding.mutable_trusted_bidding_signals_keys());
-  interest_group->mutable_ad_render_ids()->Swap(
-      ig_for_bidding.mutable_ad_render_ids());
-  interest_group->mutable_ad_component_render_ids()->Swap(
-      ig_for_bidding.mutable_ad_component_render_ids());
-  *interest_group->mutable_user_bidding_signals() =
-      std::move(*ig_for_bidding.mutable_user_bidding_signals());
-  *bid_request.mutable_trusted_bidding_signals() =
-      std::move(*ig_for_bidding.mutable_trusted_bidding_signals());
-
-  // Populate (oneof) device signals.
-  if (ig_for_bidding.has_android_signals_for_bidding() &&
-      ig_for_bidding.android_signals_for_bidding().IsInitialized()) {
-    roma_service::ProtectedAudienceAndroidSignals* android_signals =
-        bid_request.mutable_android_signals();
-    android_signals->set_top_level_seller(raw_request.top_level_seller());
-  } else if (ig_for_bidding.has_browser_signals_for_bidding() &&
-             ig_for_bidding.browser_signals_for_bidding().IsInitialized()) {
-    roma_service::ProtectedAudienceBrowserSignals* browser_signals =
-        bid_request.mutable_browser_signals();
-    browser_signals->set_top_window_hostname(raw_request.publisher_name());
-    browser_signals->set_seller(raw_request.seller());
-    browser_signals->set_top_level_seller(raw_request.top_level_seller());
-    browser_signals->set_join_count(
-        ig_for_bidding.browser_signals_for_bidding().join_count());
-    browser_signals->set_bid_count(
-        ig_for_bidding.browser_signals_for_bidding().bid_count());
-    if (ig_for_bidding.browser_signals_for_bidding().has_recency_ms()) {
-      browser_signals->set_recency(
-          ig_for_bidding.browser_signals_for_bidding().recency_ms());
-    } else {
-      browser_signals->set_recency(
-          ig_for_bidding.browser_signals_for_bidding().recency() * 1000);
-    }
-    *browser_signals->mutable_prev_wins() =
-        std::move(*ig_for_bidding.mutable_browser_signals_for_bidding()
-                       ->mutable_prev_wins());
-    *browser_signals->mutable_prev_wins_ms() =
-        std::move(*ig_for_bidding.mutable_browser_signals_for_bidding()
-                       ->mutable_prev_wins_ms());
-    browser_signals->set_multi_bid_limit(multi_bid_limit);
-    browser_signals->set_for_debugging_only_in_cooldown_or_lockout(
-        raw_request.fdo_flags().in_cooldown_or_lockout());
-  }
 }
 
 std::vector<AdWithBid> ParseProtectedAudienceBids(
@@ -197,13 +148,15 @@ absl::Duration StringMsToAbslDuration(const std::string& string_ms) {
 
 GenerateBidsBinaryReactor::GenerateBidsBinaryReactor(
     grpc::CallbackServerContext* context,
-    ByobDispatchClient<roma_service::GenerateProtectedAudienceBidRequest,
+    ByobDispatchClient<GenerateBidsRequest::GenerateBidsRawRequest,
+                       roma_service::GenerateProtectedAudienceBidRequest,
                        roma_service::GenerateProtectedAudienceBidResponse>&
         byob_client,
     const GenerateBidsRequest* request, GenerateBidsResponse* response,
     server_common::KeyFetcherManagerInterface* key_fetcher_manager,
     CryptoClientWrapperInterface* crypto_client,
-    const BiddingServiceRuntimeConfig& runtime_config)
+    const BiddingServiceRuntimeConfig& runtime_config,
+    AdtechEnrollmentCacheInterface* adtech_attestation_cache)
     : BaseGenerateBidsReactor<
           GenerateBidsRequest, GenerateBidsRequest::GenerateBidsRawRequest,
           GenerateBidsResponse, GenerateBidsResponse::GenerateBidsRawResponse>(
@@ -216,14 +169,23 @@ GenerateBidsBinaryReactor::GenerateBidsBinaryReactor(
                           [this](bool any_successful_bid) {
                             OnAllBidsDone(any_successful_bid);
                           }),
-      roma_timeout_duration_(StringMsToAbslDuration(roma_timeout_ms_)),
-      multi_bid_limit_(raw_request_.multi_bid_limit() > 0
-                           ? raw_request_.multi_bid_limit()
-                           : kDefaultMultiBidLimit),
+      roma_timeout_duration_(StringMsToAbslDuration(
+          BaseGenerateBidsReactor::roma_timeout_duration_)),
       auction_scope_(
           raw_request_.top_level_seller().empty()
               ? AuctionScope::AUCTION_SCOPE_SINGLE_SELLER
-              : AuctionScope::AUCTION_SCOPE_DEVICE_COMPONENT_MULTI_SELLER) {
+              : AuctionScope::AUCTION_SCOPE_DEVICE_COMPONENT_MULTI_SELLER),
+      batch_start_timeout_(runtime_config.enable_byob_batching
+                               ? std::make_optional<absl::Duration>(
+                                     runtime_config.byob_batch_start_timeout)
+                               : std::nullopt),
+      is_logging_enabled_(enable_adtech_code_logging_ ||
+                          !server_common::log::IsProd()),
+      is_debug_reporting_enabled_(enable_buyer_debug_url_generation_ &&
+                                  raw_request_.enable_debug_reporting()),
+      is_request_in_cooldown_or_lockout_(
+          raw_request_.fdo_flags().enable_sampled_debug_reporting() &&
+          raw_request_.fdo_flags().in_cooldown_or_lockout()) {
   PS_CHECK_OK(
       [this]() {
         PS_ASSIGN_OR_RETURN(metric_context_,
@@ -246,7 +208,8 @@ GenerateBidsBinaryReactor::GenerateBidsBinaryReactor(
       .enable_sampled_debug_reporting =
           raw_request_.fdo_flags().enable_sampled_debug_reporting(),
       .debug_reporting_sampling_upper_bound =
-          runtime_config.debug_reporting_sampling_upper_bound};
+          runtime_config.debug_reporting_sampling_upper_bound,
+      .attestation_cache = adtech_attestation_cache};
 }
 
 void GenerateBidsBinaryReactor::Execute() {
@@ -268,110 +231,56 @@ void GenerateBidsBinaryReactor::Execute() {
     log_context_.SetEventMessageField(raw_request_);
   }
 
+  if (raw_request_.multi_bid_limit() <= 0) {
+    // used when multi bid limit is not specified.
+    raw_request_.set_multi_bid_limit(kDefaultMultiBidLimit);
+  }
+
+  if (batch_start_timeout_) {
+    DispatchExecutionsInBatch();
+  } else {
+    DispatchExecutions();
+  }
+}
+
+void GenerateBidsBinaryReactor::DispatchExecutions() {
   // Number of tasks to track equals the number of interest groups.
   int ig_count = raw_request_.interest_group_for_bidding_size();
   async_task_tracker_.SetNumTasksToTrack(ig_count);
+  udf_stats_.total = ig_count;
 
   // Resize to number of interest groups in advance to prevent reallocation.
   ads_with_bids_by_ig_.resize(ig_count);
 
+  roma_service::GenerateProtectedAudienceBidRequest common_bid_request =
+      BuildCommonProtectedAudienceBidRequest(raw_request_, is_logging_enabled_,
+                                             is_debug_reporting_enabled_);
+
   // Send execution requests for each interest group immediately.
   start_binary_execution_time_ = absl::Now();
-
-  roma_service::GenerateProtectedAudienceBidRequest bid_request =
-      BuildProtectedAudienceBidRequest(
-          raw_request_,
-          enable_adtech_code_logging_ || !server_common::log::IsProd(),
-          enable_buyer_debug_url_generation_ &&
-              raw_request_.enable_debug_reporting());
   for (int ig_index = 0; ig_index < ig_count; ++ig_index) {
-    ExecuteForInterestGroup(bid_request, ig_index);
+    // Populate bid request for given interest group.
+    UpdateProtectedAudienceBidRequest(
+        common_bid_request, raw_request_,
+        *raw_request_.mutable_interest_group_for_bidding(ig_index));
+    DispatchInterestGroup(common_bid_request, ig_index);
   }
 }
 
-void GenerateBidsBinaryReactor::ExecuteForInterestGroup(
+void GenerateBidsBinaryReactor::DispatchInterestGroup(
     roma_service::GenerateProtectedAudienceBidRequest& bid_request,
     int ig_index) {
-  // Populate bid request for given interest group.
-  UpdateProtectedAudienceBidRequest(
-      bid_request, raw_request_,
-      *raw_request_.mutable_interest_group_for_bidding(ig_index),
-      multi_bid_limit_);
   const std::string ig_name = bid_request.interest_group().name();
-  const bool logging_enabled = bid_request.server_metadata().logging_enabled();
-  const bool collect_debug_reporting_urls =
-      bid_request.server_metadata().debug_reporting_enabled() &&
-      !(raw_request_.fdo_flags().enable_sampled_debug_reporting() &&
-        raw_request_.fdo_flags().in_cooldown_or_lockout());
   // Make asynchronous execute call using the BYOB client.
   PS_VLOG(kNoisyInfo) << "Starting UDF execution for IG: " << ig_name;
   absl::Status execute_status = byob_client_->Execute(
       bid_request, roma_timeout_duration_,
-      [this, ig_index, ig_name, logging_enabled, collect_debug_reporting_urls](
-          absl::StatusOr<roma_service::GenerateProtectedAudienceBidResponse>
-              bid_response_status) mutable {
-        // Error response.
-        if (!bid_response_status.ok()) {
-          PS_LOG(ERROR, log_context_)
-              << "Execution of GenerateProtectedAudienceBid request failed "
-                 "for IG "
-              << ig_name << " with status: "
-              << bid_response_status.status().ToString(
-                     absl::StatusToStringMode::kWithEverything);
-          if (bid_response_status.status().code() ==
-              absl::StatusCode::kDeadlineExceeded) {
-            // Execution timed out.
-            LogIfError(
-                metric_context_
-                    ->AccumulateMetric<metric::kBiddingErrorCountByErrorCode>(
-                        1, metric::kBiddingGenerateBidsTimedOutError));
-          } else {
-            // Execution failed.
-            LogIfError(
-                metric_context_
-                    ->AccumulateMetric<metric::kBiddingErrorCountByErrorCode>(
-                        1, metric::kBiddingGenerateBidsDispatchResponseError));
-            LogIfError(
-                metric_context_
-                    ->AccumulateMetric<metric::kUdfExecutionErrorCount>(1));
-          }
-          async_task_tracker_.TaskCompleted(TaskStatus::ERROR);
-          return;
-        }
-
-        // Empty response.
-        roma_service::GenerateProtectedAudienceBidResponse& bid_response =
-            *bid_response_status;
-        if (!bid_response.IsInitialized() || bid_response.bids_size() == 0) {
-          PS_LOG(INFO, log_context_)
-              << "Execution of GenerateProtectedAudienceBid request for IG "
-              << ig_name << " returned an empty response";
-          async_task_tracker_.TaskCompleted(TaskStatus::EMPTY_RESPONSE);
-          return;
-        }
-
-        // Successful response.
-        if (server_common::log::PS_VLOG_IS_ON(kDispatch)) {
-          PS_VLOG(kDispatch, log_context_)
-              << "Generate Bids BYOB Response: " << bid_response;
-        }
-        // Populate list of AdsWithBids for this interest group from the bid
-        // response returned by UDF.
-        if (bid_response.bids_size() > multi_bid_limit_) {
-          PS_LOG(ERROR, log_context_)
-              << "Execution of GenerateProtectedAudienceBid request for IG "
-              << ig_name
-              << " returned more bids than the allowed multi_bid_limit";
-        } else if (bid_response.bids_size() > 0) {
-          ads_with_bids_by_ig_[ig_index] =
-              ParseProtectedAudienceBids(*bid_response.mutable_bids(), ig_name,
-                                         collect_debug_reporting_urls);
-        }
-        // Print log messages if present if logging enabled.
-        if (logging_enabled && bid_response.has_log_messages()) {
-          HandleLogMessages(ig_name, bid_response.log_messages(), log_context_);
-        }
-        async_task_tracker_.TaskCompleted(TaskStatus::SUCCESS);
+      [this, ig_index,
+       ig_name](absl::StatusOr<ByobDispatchResponse<
+                    roma_service::GenerateProtectedAudienceBidResponse>>
+                    bid_response_status) {
+        async_task_tracker_.TaskCompleted(
+            ProcessResponse(std::move(bid_response_status), ig_name, ig_index));
       });
 
   // Handle the case where execute call fails to dispatch to UDF binary.
@@ -388,22 +297,201 @@ void GenerateBidsBinaryReactor::ExecuteForInterestGroup(
   }
 }
 
+void GenerateBidsBinaryReactor::DispatchExecutionsInBatch() {
+  // Resize to number of interest groups in advance to prevent reallocation.
+  int ig_count = raw_request_.interest_group_for_bidding_size();
+  ads_with_bids_by_ig_.resize(ig_count);
+  udf_stats_.total = ig_count;
+
+  std::vector<std::string> ig_names;
+  ig_names.reserve(ig_count);
+
+  for (int ig_index = 0; ig_index < ig_count; ++ig_index) {
+    ig_names.push_back(
+        raw_request_.mutable_interest_group_for_bidding(ig_index)->name());
+  }
+  roma_service::GenerateProtectedAudienceBidRequest common_bid_request =
+      BuildCommonProtectedAudienceBidRequest(raw_request_, is_logging_enabled_,
+                                             is_debug_reporting_enabled_);
+  start_binary_execution_time_ = absl::Now();
+  const absl::Status execute_status =
+      byob_client_->ExecuteManyWithSharedTimeouts(
+          raw_request_, std::move(common_bid_request),
+          /*start_timeout=*/
+          batch_start_timeout_ ? *batch_start_timeout_ : absl::ZeroDuration(),
+          /*execution_timeout=*/roma_timeout_duration_,
+          [this, ig_names = std::move(ig_names)](
+              std::vector<absl::StatusOr<ByobDispatchResponse<
+                  roma_service::GenerateProtectedAudienceBidResponse>>>
+                  responses) {
+            for (int ig_index = 0; ig_index < responses.size(); ++ig_index) {
+              ProcessResponse(std::move(responses[ig_index]),
+                              ig_names[ig_index], ig_index);
+            }
+            OnAllBidsDone(udf_stats_.success_executed > 0);
+          });
+  if (!execute_status.ok()) {
+    PS_LOG(ERROR, log_context_)
+        << "Execution of GenerateProtectedAudienceBid failed with status: "
+        << execute_status.ToString(absl::StatusToStringMode::kWithEverything);
+    LogIfError(
+        metric_context_
+            ->AccumulateMetric<metric::kBiddingErrorCountByErrorCode>(
+                ig_count, metric::kBiddingGenerateBidsFailedToDispatchCode));
+    if (execute_status.code() == absl::StatusCode::kResourceExhausted) {
+      FinishWithNoBids(grpc::Status(grpc::StatusCode::RESOURCE_EXHAUSTED,
+                                    "Queue size exceeded. Try again."));
+    } else {
+      FinishWithNoBids(
+          grpc::Status(grpc::StatusCode::INTERNAL, kInternalError));
+    }
+    return;
+  }
+}
+
+TaskStatus GenerateBidsBinaryReactor::ProcessResponse(
+    absl::StatusOr<ByobDispatchResponse<
+        roma_service::GenerateProtectedAudienceBidResponse>>
+        bid_response_status,
+    absl::string_view ig_name, int ig_index) {
+  if (absl::IsUnavailable(bid_response_status.status())) {
+    // Assume UDF non-response caused by cancellation.
+    bid_response_status = absl::CancelledError("Execution timed out.");
+  }
+  // Error response.
+  if (!bid_response_status.ok()) {
+    PS_LOG(ERROR, log_context_)
+        << "Execution of GenerateProtectedAudienceBid request failed "
+           "for IG "
+        << ig_name << " with status: "
+        << bid_response_status.status().ToString(
+               absl::StatusToStringMode::kWithEverything);
+    LogIfError(
+        metric_context_->AccumulateMetric<metric::kUdfExecutionErrorCount>(1));
+    if (bid_response_status.status().code() ==
+        absl::StatusCode::kDeadlineExceeded) {
+      // Execution dispatch timed out.
+      udf_stats_.timeout_waiting += 1;
+      udf_stats_.max_queue_time_ms =
+          (batch_start_timeout_
+               ? std::max<int>(udf_stats_.max_queue_time_ms,
+                               (*batch_start_timeout_) / absl::Milliseconds(1))
+               : udf_stats_.max_queue_time_ms);
+      LogIfError(metric_context_
+                     ->AccumulateMetric<metric::kBiddingErrorCountByErrorCode>(
+                         1, metric::kBiddingGenerateBidsDispatchTimedOutError));
+      return TaskStatus::SKIPPED;
+    } else if (bid_response_status.status().code() ==
+               absl::StatusCode::kCancelled) {
+      // Execution started but timed out.
+      udf_stats_.timeout_executed += 1;
+      LogIfError(metric_context_
+                     ->AccumulateMetric<metric::kBiddingErrorCountByErrorCode>(
+                         1, metric::kBiddingGenerateBidsTimedOutError));
+      return TaskStatus::CANCELLED;
+    } else {
+      // Execution failed.
+      udf_stats_.error_executed += 1;
+      LogIfError(metric_context_
+                     ->AccumulateMetric<metric::kBiddingErrorCountByErrorCode>(
+                         1, metric::kBiddingGenerateBidsDispatchResponseError));
+      return TaskStatus::ERROR;
+    }
+  }
+  udf_stats_.success_executed += 1;
+  int binary_execution_time_ms = (bid_response_status->metrics.send_time +
+                                  bid_response_status->metrics.response_time) /
+                                 absl::Milliseconds(1);
+  // New Avg = Old Avg + (Val - Old Avg)/N
+  udf_stats_.avg_execution_time_ms +=
+      (binary_execution_time_ms - udf_stats_.avg_execution_time_ms) /
+      udf_stats_.success_executed;
+  LogIfError(metric_context_->AccumulateMetric<metric::kUdfExecutionDuration>(
+      binary_execution_time_ms));
+  udf_stats_.max_queue_time_ms = std::max<int>(
+      udf_stats_.max_queue_time_ms,
+      (bid_response_status->metrics.wait_time / absl::Milliseconds(1)));
+
+  // Empty response.
+  roma_service::GenerateProtectedAudienceBidResponse& bid_response =
+      bid_response_status->response;
+  if (!bid_response.IsInitialized()) {
+    PS_LOG(INFO, log_context_)
+        << "Execution of GenerateProtectedAudienceBid request for IG "
+        << ig_name << "returned an empty response";
+    return TaskStatus::EMPTY_RESPONSE;
+  }
+
+  // Initalized response.
+  // Print log messages if present if logging enabled.
+  if (is_logging_enabled_ && bid_response.has_log_messages()) {
+    HandleLogMessages(ig_name, bid_response.log_messages(), log_context_);
+  }
+
+  if (server_common::log::PS_VLOG_IS_ON(kDispatch)) {
+    PS_VLOG(kDispatch, log_context_)
+        << "Generate Bids BYOB Response: " << bid_response;
+  }
+
+  // Empty response.
+  if (bid_response.bids_size() == 0) {
+    return TaskStatus::EMPTY_RESPONSE;
+  }
+
+  // Populate list of AdsWithBids for this interest group from the bid
+  // response returned by UDF.
+  if (bid_response.bids_size() > raw_request_.multi_bid_limit()) {
+    PS_LOG(ERROR, log_context_)
+        << "Execution of GenerateProtectedAudienceBid request for IG "
+        << ig_name << " returned more bids than the allowed multi_bid_limit";
+    // TODO(b/416751872): publish metric for error and parse the first
+    // multi_bid_limit_ bids?
+    return TaskStatus::ERROR;
+  }
+
+  if (bid_response.bids_size() > 0) {
+    // Populate list of AdsWithBids for this interest group from the bid
+    // response returned by UDF.
+    ads_with_bids_by_ig_[ig_index] = ParseProtectedAudienceBids(
+        *bid_response.mutable_bids(), ig_name,
+        (is_debug_reporting_enabled_ && !is_request_in_cooldown_or_lockout_));
+  }
+  return TaskStatus::SUCCESS;
+}
+
+void GenerateBidsBinaryReactor::FinishWithNoBids(grpc::Status status) {
+  LogIfError(
+      metric_context_->LogHistogram<metric::kBiddingFailedToBidPercent>(1.0));
+  LogIfError(metric_context_->LogHistogram<metric::kBiddingTotalBidsCount>(0));
+  PS_LOG(WARNING, log_context_)
+      << "No successful bids returned by the adtech UDF";
+  EncryptResponseAndFinish(std::move(status));
+}
+
 void GenerateBidsBinaryReactor::OnAllBidsDone(bool any_successful_bids) {
   // Log total end-to-end execution time.
   int binary_execution_time_ms =
       (absl::Now() - start_binary_execution_time_) / absl::Milliseconds(1);
-  LogIfError(metric_context_->LogHistogram<metric::kUdfExecutionDuration>(
+  LogIfError(metric_context_->LogHistogram<metric::kUdfBatchExecutionDuration>(
       binary_execution_time_ms));
+
+  // Log all other metrics
+  PS_VLOG(kStats, log_context_)
+      << "Avg batch execution time: " << udf_stats_.avg_execution_time_ms;
+  LogIfError(
+      metric_context_->LogHistogram<metric::kUdfExecutionQueueingDuration>(
+          udf_stats_.max_queue_time_ms));
+  // Handle the case where none of the requests could be scheduled.
+  if (udf_stats_.timeout_waiting == udf_stats_.total && !any_successful_bids) {
+    FinishWithNoBids(
+        grpc::Status(grpc::StatusCode::RESOURCE_EXHAUSTED,
+                     "All execution dispatch requests timed out. Try again."));
+    return;
+  }
 
   // Handle the case where none of the bid responses are successful.
   if (!any_successful_bids) {
-    LogIfError(
-        metric_context_->LogHistogram<metric::kBiddingFailedToBidPercent>(1.0));
-    LogIfError(
-        metric_context_->LogHistogram<metric::kBiddingTotalBidsCount>(0));
-    PS_LOG(WARNING, log_context_)
-        << "No successful bids returned by the adtech UDF";
-    EncryptResponseAndFinish(grpc::Status(
+    FinishWithNoBids(grpc::Status(
         grpc::INTERNAL, "No successful bids returned by the adtech UDF"));
     return;
   }
@@ -417,7 +505,8 @@ void GenerateBidsBinaryReactor::OnAllBidsDone(bool any_successful_bids) {
 
   // Populate GenerateBidsRawResponse from list of valid AdsWithBids for all
   // interest groups.
-  int failed_to_bid_count = 0;
+  int failed_to_bid_count =
+      udf_stats_.timeout_executed + udf_stats_.timeout_waiting;
   int received_bid_count = 0;
   int zero_bid_count = 0;
   int total_debug_urls_count = 0;
@@ -426,7 +515,6 @@ void GenerateBidsBinaryReactor::OnAllBidsDone(bool any_successful_bids) {
   raw_response_.mutable_bids()->Reserve(EstimateNumBids(ads_with_bids_by_ig_));
   for (std::vector<AdWithBid>& ads_with_bids : ads_with_bids_by_ig_) {
     if (ads_with_bids.empty()) {
-      failed_to_bid_count += 1;
       continue;
     }
     for (AdWithBid& ad_with_bid : ads_with_bids) {

@@ -87,6 +87,7 @@ cc_library(
         "request_context.h",
     ],
     deps = [
+        "//services/common/clients:cancellable_grpc_context_manager",
         "//services/common/loggers:request_log_context",
         "//services/common/metric:server_definition",
         "@com_google_absl//absl/container:btree",

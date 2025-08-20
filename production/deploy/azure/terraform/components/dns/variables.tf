@@ -12,6 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+variable "region" {
+  description = "Region. Ex: eastus, westus, etc."
+  type        = string
+}
+
+variable "operator" {
+  description = "Operator. Ex: buyer1, seller1, etc."
+  type        = string
+}
+
+variable "environment" {
+  description = "Environment. Ex: dev, prod, etc."
+  type        = string
+}
+
 variable "resource_group_name" {
   description = "Resource Group Name"
   type        = string
@@ -50,4 +65,10 @@ variable "fe_service_ips" {
 variable "service_ips" {
   description = "IP addresses of service"
   type        = list(string)
+}
+
+
+variable "aks_vnet_ids" {
+  description = "List of AKS Virtual Network ID"
+  type        = map(string)
 }
