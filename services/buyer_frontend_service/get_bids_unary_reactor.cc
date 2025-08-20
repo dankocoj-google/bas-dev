@@ -145,7 +145,8 @@ GetBidsUnaryReactor::GetBidsUnaryReactor(
     server_common::KeyFetcherManagerInterface* key_fetcher_manager,
     CryptoClientWrapperInterface* crypto_client, KVAsyncClient* kv_async_client,
     server_common::Executor& executor,
-    const RandomNumberGeneratorFactory& rng_factory, bool enable_benchmarking)
+    const RandomNumberGeneratorFactory& rng_factory,
+    const ChaffMedianTrackers& chaff_median_trackers, bool enable_benchmarking)
     : context_(&context),
       request_(&get_bids_request),
       get_bids_response_(&get_bids_response),
@@ -158,12 +159,13 @@ GetBidsUnaryReactor::GetBidsUnaryReactor(
       config_(config),
       key_fetcher_manager_(key_fetcher_manager),
       crypto_client_(crypto_client),
-      chaffing_enabled_(config_.is_chaffing_enabled),
+      chaffing_v1_enabled_(config_.is_chaffing_v1_enabled),
+      chaffing_v2_enabled_(config_.is_chaffing_v2_enabled),
       is_sampled_for_debug_([this, &rng_factory]() {
         decrypt_status_ = DecryptRequest();
         rng_ =
             CreateRng(config_.debug_sample_rate_micro,
-                      chaffing_enabled_ && raw_request_.is_chaff(),
+                      chaffing_v1_enabled_ && raw_request_.is_chaff(),
                       raw_request_.is_debug_eligible(),
                       raw_request_.log_context().generation_id(), rng_factory);
 
@@ -187,7 +189,8 @@ GetBidsUnaryReactor::GetBidsUnaryReactor(
       enable_enforce_kanon_(config.enable_kanon &&
                             raw_request_.enforce_kanon()),
       bidding_signals_fetch_mode_(config.bidding_signals_fetch_mode),
-      executor_(executor) {
+      executor_(executor),
+      chaff_median_trackers_(chaff_median_trackers) {
   if (enable_benchmarking) {
     std::string request_id = FormatTime(absl::Now());
     benchmarking_logger_ =
@@ -225,12 +228,14 @@ GetBidsUnaryReactor::GetBidsUnaryReactor(
     server_common::KeyFetcherManagerInterface* key_fetcher_manager,
     CryptoClientWrapperInterface* crypto_client, KVAsyncClient* kv_async_client,
     server_common::Executor& executor,
-    const RandomNumberGeneratorFactory& rng_factory, bool enable_benchmarking)
+    const RandomNumberGeneratorFactory& rng_factory,
+    const ChaffMedianTrackers& chaff_median_trackers, bool enable_benchmarking)
     : GetBidsUnaryReactor(context, get_bids_request, get_bids_response,
                           bidding_signals_async_provider, bidding_async_client,
                           config, /*pas_bidding_async_client=*/nullptr,
                           key_fetcher_manager, crypto_client, kv_async_client,
-                          executor, rng_factory, enable_benchmarking) {}
+                          executor, rng_factory, chaff_median_trackers,
+                          enable_benchmarking) {}
 
 void GetBidsUnaryReactor::OnAllBidsDone(bool any_successful_bids) {
   if (enable_cancellation_ && context_->IsCancelled()) {
@@ -272,6 +277,7 @@ void GetBidsUnaryReactor::OnAllBidsDone(bool any_successful_bids) {
                                     << get_bids_response_->ShortDebugString();
 
   benchmarking_logger_->End();
+
   FinishWithStatus(grpc::Status::OK);
 }
 
@@ -280,7 +286,8 @@ grpc::Status GetBidsUnaryReactor::ParseRawRequestBytestring(
   // If the payload begins with the null terminator or the first bit set, the
   // request is in the the new request format.
   if (decrypt_response.payload().front() != '\0' &&
-      decrypt_response.payload().front() != '\x01') {
+      decrypt_response.payload().front() != '\x01' &&
+      decrypt_response.payload().front() != '\x02') {
     return {grpc::StatusCode::INVALID_ARGUMENT, kMalformedRequest};
   }
 
@@ -401,7 +408,7 @@ void GetBidsUnaryReactor::CancellableExecute() {
 
   LogIgMetric(raw_request_, *metric_context_);
 
-  if (chaffing_enabled_ && raw_request_.is_chaff()) {
+  if (chaffing_v1_enabled_ && raw_request_.is_chaff()) {
     ExecuteChaffRequest();
     return;
   }
@@ -452,19 +459,37 @@ void GetBidsUnaryReactor::CancellableExecute() {
 }
 
 void GetBidsUnaryReactor::CancellableExecuteChaffRequest() {
-  // Artificially delay the response for chaff requests to mimic processing a
-  // real request.
-  size_t chaff_request_duration = 0;
-  if (rng_) {
-    chaff_request_duration = rng_->GetUniformInt(kMinChaffRequestDurationMs,
-                                                 kMaxChaffRequestDurationMs);
-  }
-  // Produce chaff response.
+  absl::Duration chaff_request_duration;
   size_t chaff_response_size = 0;
-  if (rng_) {
-    chaff_response_size = rng_->GetUniformInt(kMinChaffResponseSizeBytes,
-                                              kMaxChaffResponseSizeBytes);
+
+  if (!chaffing_v1_enabled_ && !chaffing_v2_enabled_) {
+    // ExecuteChaffRequest() should only be called for chaff requests.
+    FinishWithStatus(grpc::Status(grpc::INTERNAL, kInternalServerError));
+    return;
   }
+
+  if (chaffing_v2_enabled_) {
+    absl::StatusOr<std::pair<absl::Duration, int>> chaffing_values =
+        GetBuyerChaffingV2Values(chaff_median_trackers_);
+    if (!chaffing_values.ok()) {
+      PS_LOG(ERROR, log_context_)
+          << "Failed to get chaffing values: " << chaffing_values.status();
+      FinishWithStatus(grpc::Status(grpc::INTERNAL, kInternalServerError));
+      return;
+    }
+
+    chaff_request_duration = chaffing_values->first;
+    chaff_response_size = (size_t)chaffing_values->second;
+  } else {
+    if (rng_) {
+      chaff_request_duration = absl::Milliseconds(rng_->GetUniformInt(
+          kMinChaffRequestDurationMs, kMaxChaffRequestDurationMs));
+      chaff_response_size = rng_->GetUniformInt(kMinChaffResponseSizeBytes,
+                                                kMaxChaffResponseSizeBytes);
+    }
+  }
+
+  // Produce chaff response.
   absl::StatusOr<std::string> encoded_payload = EncodeAndCompressGetBidsPayload(
       *get_bids_raw_response_, compression_type_, chaff_response_size);
   if (!encoded_payload.ok()) {
@@ -488,7 +513,9 @@ void GetBidsUnaryReactor::CancellableExecuteChaffRequest() {
   get_bids_response_->set_response_ciphertext(
       aead_encrypt->encrypted_data().ciphertext());
 
-  executor_.RunAfter(absl::Milliseconds((int)chaff_request_duration),
+  // Artificially delay the response for chaff requests to mimic processing a
+  // real request.
+  executor_.RunAfter(chaff_request_duration,
                      [this]() { FinishWithStatus(grpc::Status::OK); });
 }
 
@@ -923,9 +950,14 @@ void GetBidsUnaryReactor::PrepareAndGenerateProtectedAudienceBid(
 
 absl::Status GetBidsUnaryReactor::EncryptResponse() {
   absl::StatusOr<std::string> encoded_payload = EncodeAndCompressGetBidsPayload(
-      *get_bids_raw_response_, CompressionType::kGzip);
+      *get_bids_raw_response_, compression_type_);
   PS_RETURN_IF_ERROR(encoded_payload.status())
       << "when trying to encode/compress SelectAdResponse";
+
+  if (chaffing_v2_enabled_) {
+    chaff_median_trackers_.response_size->AddNumber(*rng_,
+                                                    encoded_payload->length());
+  }
 
   PS_ASSIGN_OR_RETURN(
       auto aead_encrypt,
@@ -943,9 +975,15 @@ GetBidsUnaryReactor::GetLoggingContext() {
 }
 
 void GetBidsUnaryReactor::FinishWithStatus(const grpc::Status& status) {
-  if (status.error_code() != grpc::StatusCode::OK) {
+  if (status.error_code() == grpc::StatusCode::OK && !raw_request_.is_chaff() &&
+      chaffing_v2_enabled_) {
+    int request_duration =
+        static_cast<int>((absl::Now() - start_) / absl::Milliseconds(1));
+    chaff_median_trackers_.request_duration->AddNumber(*rng_, request_duration);
+  } else if (status.error_code() != grpc::StatusCode::OK) {
     metric_context_->SetRequestResult(server_common::ToAbslStatus(status));
   }
+
   Finish(status);
 }
 

@@ -47,7 +47,7 @@ class BaseGenerateBidsReactor
             runtime_config.enable_cancellation, runtime_config.enable_kanon),
         enable_buyer_debug_url_generation_(
             runtime_config.enable_buyer_debug_url_generation),
-        roma_timeout_ms_(runtime_config.roma_timeout_ms),
+        roma_timeout_duration_(runtime_config.roma_timeout_duration),
         roma_request_context_factory_(
             GetLoggingContext(this->raw_request_),
             this->raw_request_.consented_debug_config(),
@@ -74,7 +74,7 @@ class BaseGenerateBidsReactor
   }
 
   bool enable_buyer_debug_url_generation_;
-  std::string roma_timeout_ms_;
+  std::string roma_timeout_duration_;
   RomaRequestContextFactory roma_request_context_factory_;
   RequestLogContext log_context_;
   bool enable_adtech_code_logging_;

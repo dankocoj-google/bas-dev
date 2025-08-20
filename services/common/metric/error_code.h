@@ -60,13 +60,16 @@ inline constexpr absl::string_view kBfeErrorCode[]{
 
 inline constexpr absl::string_view kBiddingGenerateBidsDispatchResponseError =
     "GenerateBids dispatch response error";
-inline constexpr absl::string_view kBiddingGenerateBidsTimedOutError =
+inline constexpr absl::string_view kBiddingGenerateBidsDispatchTimedOutError =
     "GenerateBids dispatch timed out";
+inline constexpr absl::string_view kBiddingGenerateBidsTimedOutError =
+    "GenerateBids execution timed out";
 inline constexpr absl::string_view kBiddingGenerateBidsFailedToDispatchCode =
     "GenerateBids failed to dispatch code";
 
 inline constexpr absl::string_view kBiddingErrorCode[]{
     kBiddingGenerateBidsDispatchResponseError,
+    kBiddingGenerateBidsDispatchTimedOutError,
     kBiddingGenerateBidsTimedOutError,
     kBiddingGenerateBidsFailedToDispatchCode,
 };

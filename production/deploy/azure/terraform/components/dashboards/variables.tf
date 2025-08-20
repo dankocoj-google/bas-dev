@@ -31,3 +31,8 @@ variable "resource_group_name" {
   description = "Resource Group Name"
   type        = string
 }
+
+variable "tftpl_name" {
+  description = "Name of the template file used to create the dashboard"
+  type        = string
+}

@@ -141,7 +141,7 @@ struct ReportingDispatchRequestConfig {
   bool enable_protected_app_signals = false;
   bool enable_report_win_input_noising = false;
   bool enable_adtech_code_logging = false;
-  std::string roma_timeout_ms;
+  std::string roma_timeout_duration;
   absl::string_view report_result_udf_version;
 };
 

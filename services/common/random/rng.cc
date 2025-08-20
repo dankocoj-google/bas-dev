@@ -27,15 +27,19 @@ int RandomNumberGenerator::GetUniformInt(int lower, int upper) {
   return std::uniform_int_distribution<int>(lower, upper)(generator_);
 }
 
-double RandomNumberGenerator::GetUniformReal(double lower, double upper) {
+double RandomNumberGenerator::GetUniformDouble(double lower, double upper) {
   return std::uniform_real_distribution<double>(lower, upper)(generator_);
+}
+
+double RandomNumberGenerator::GetNormalDouble(double mean, double std_dev) {
+  return std::normal_distribution<double>(mean, std_dev)(generator_);
 }
 
 void RandomNumberGenerator::Shuffle(std::vector<absl::string_view>& vector) {
   std::shuffle(vector.begin(), vector.end(), generator_);
 }
 
-bool RandomNumberGenerator::RandomSample(int sample_rate_micro) {
+bool RandomNumberGenerator::ShouldSample(int sample_rate_micro) {
   absl::discrete_distribution dist(
       {1e6 - sample_rate_micro, (double)sample_rate_micro});
   absl::BitGenRef bit_gen_ref(generator_);

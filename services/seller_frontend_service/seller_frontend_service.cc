@@ -45,18 +45,21 @@ std::unique_ptr<SelectAdReactor> GetSelectAdReactor(
     const ReportWinMap& report_win_map,
     const RandomNumberGeneratorFactory& rng_factory, bool enable_cancellation,
     bool enable_kanon, bool enable_buyer_private_aggregate_reporting,
-    int per_adtech_paapi_contributions_limit) {
+    int per_adtech_paapi_contributions_limit,
+    CompressionType sfe_bfe_compression_algo) {
   switch (request->client_type()) {
     case CLIENT_TYPE_ANDROID:
       return std::make_unique<SelectAdReactorForApp>(
           context, request, response, executor, clients, config_client,
-          report_win_map, rng_factory, enable_cancellation, enable_kanon);
+          report_win_map, rng_factory, enable_cancellation, enable_kanon,
+          sfe_bfe_compression_algo);
     case CLIENT_TYPE_BROWSER:
       return std::make_unique<SelectAdReactorForWeb>(
           context, request, response, executor, clients, config_client,
           report_win_map, rng_factory, enable_cancellation, enable_kanon,
           enable_buyer_private_aggregate_reporting,
-          per_adtech_paapi_contributions_limit);
+          per_adtech_paapi_contributions_limit, /* fail_fast */ true,
+          /* max_buyers_solicited */ 2, sfe_bfe_compression_algo);
     default:
       return std::make_unique<SelectAdReactorInvalid>(
           context, request, response, executor, clients, config_client,
@@ -124,7 +127,7 @@ grpc::ServerUnaryReactor* SellerFrontEndService::SelectAd(
       context, request, response, executor_.get(), clients_, config_client_,
       report_win_map_, rng_factory_, enable_cancellation_, enable_kanon_,
       enable_buyer_private_aggregate_reporting_,
-      per_adtech_paapi_contributions_limit_);
+      per_adtech_paapi_contributions_limit_, sfe_bfe_compression_algo_);
   reactor->Execute();
   return reactor.release();
 }

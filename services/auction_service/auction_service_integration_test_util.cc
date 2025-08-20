@@ -218,11 +218,13 @@ void RunTestScoreAds(
           ScoreAdsResponse* response,
           server_common::KeyFetcherManagerInterface* key_fetcher_manager,
           CryptoClientWrapperInterface* crypto_client,
-          const AuctionServiceRuntimeConfig& runtime_config) {
+          const AuctionServiceRuntimeConfig& runtime_config,
+          AdtechEnrollmentCacheInterface* adtech_attestation_cache) {
         return std::make_unique<ScoreAdsReactor>(
             context, client, request, response,
             std::make_unique<ScoreAdsNoOpLogger>(), key_fetcher_manager,
-            crypto_client, *async_reporter_local, runtime_config);
+            crypto_client, *async_reporter_local, runtime_config,
+            adtech_attestation_cache);
       };
 
   auto crypto_client = std::make_unique<MockCryptoClientWrapper>();
@@ -233,7 +235,8 @@ void RunTestScoreAds(
       CreateKeyFetcherManager(config_client, /*public_key_fetcher=*/nullptr);
   AuctionService service(
       std::move(score_ads_reactor_factory), std::move(key_fetcher_manager),
-      std::move(crypto_client), auction_service_runtime_config);
+      std::move(crypto_client), auction_service_runtime_config,
+      /* adtech_attestation_cache = */ nullptr);
   LocalAuctionStartResult result = StartLocalAuction(&service);
   std::unique_ptr<Auction::StubInterface> stub = CreateAuctionStub(result.port);
   grpc::ClientContext client_context;

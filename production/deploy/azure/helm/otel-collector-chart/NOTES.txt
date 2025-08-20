@@ -1,0 +1,8 @@
+The OpenTelemetry Collector chart has been deployed.
+
+Resources created:
+- Deployment: otel-collector
+- Service: otel-collector-service
+- ConfigMap: otel-collector-config
+
+Target Namespace: {{ .Values.namespace | default .Release.Namespace }}

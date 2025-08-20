@@ -22,6 +22,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "api/bidding_auction_servers.pb.h"
+#include "services/common/attestation/adtech_enrollment_cache.h"
 #include "services/common/loggers/request_log_context.h"
 #include "services/common/metric/server_definition.h"
 #include "services/common/util/reporting_util.h"
@@ -33,6 +34,7 @@ struct DebugUrlsValidationConfig {
   long max_allowed_size_all_debug_urls_chars;
   bool enable_sampled_debug_reporting;
   int debug_reporting_sampling_upper_bound;
+  AdtechEnrollmentCacheInterface* attestation_cache = nullptr;
 };
 
 // Clears the debug win/loss url for ad_with_bid if:

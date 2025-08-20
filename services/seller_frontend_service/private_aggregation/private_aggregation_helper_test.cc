@@ -476,8 +476,8 @@ TEST(HandlePrivateAggregationContributionsForGhostWinnersTest,
   for (auto& ghost_winning_ad_score :
        *score_ads_raw_response.mutable_ghost_winning_ad_scores()) {
     HandlePrivateAggregationContributionsForGhostWinner(
-        GetInterestGroupIndexMap(), ghost_winning_ad_score,
-        shared_buyer_bids_map);
+        GetInterestGroupIndexMap(), shared_buyer_bids_map,
+        ghost_winning_ad_score);
   }
 
   PrivateAggregateReportingResponse expected_response_1;

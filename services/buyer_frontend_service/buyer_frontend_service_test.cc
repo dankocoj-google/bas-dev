@@ -158,7 +158,8 @@ ClientRegistry CreateClientRegistry(
     std::unique_ptr<BiddingAsyncClientMock> bidding_async_client,
     std::unique_ptr<ProtectedAppSignalsBiddingAsyncClientMock>
         protected_app_signals_bidding_async_client,
-    std::unique_ptr<KVAsyncClientMock> kv_async_client = nullptr) {
+    std::unique_ptr<KVAsyncClientMock> kv_async_client = nullptr,
+    const ChaffMedianTrackers& chaff_median_trackers = {}) {
   auto config_client = CreateTrustedServerConfigClient();
   return {.bidding_signals_async_provider =
               std::move(bidding_signals_async_provider),
@@ -168,7 +169,8 @@ ClientRegistry CreateClientRegistry(
           .key_fetcher_manager = CreateKeyFetcherManager(
               config_client, CreatePublicKeyFetcher(config_client)),
           .crypto_client = CreateCryptoClient(),
-          .kv_async_client = std::move(kv_async_client)};
+          .kv_async_client = std::move(kv_async_client),
+          .chaff_median_trackers = chaff_median_trackers};
 }
 
 GetBidsConfig CreateDefaultGetBidsConfig() {
@@ -1406,7 +1408,7 @@ TEST_F(BuyerFrontEndServiceTest,
   auto protected_app_signals_bidding_async_client =
       GetProtectedAppSignalsBiddingClientMockThatWillNotBeCalled();
   GetBidsConfig config = CreateDefaultGetBidsConfig();
-  config.is_chaffing_enabled = true;
+  config.is_chaffing_v1_enabled = true;
   BuyerFrontEndService buyer_frontend_service(
       CreateClientRegistry(
           std::move(bidding_signals_async_provider),
@@ -1442,7 +1444,7 @@ TEST_F(BuyerFrontEndServiceTest,
   auto protected_app_signals_bidding_async_client =
       GetProtectedAppSignalsBiddingClientMockThatWillNotBeCalled();
   GetBidsConfig config = CreateDefaultGetBidsConfig();
-  config.is_chaffing_enabled = true;
+  config.is_chaffing_v1_enabled = true;
   config.is_tkv_v2_browser_enabled = true;
   BuyerFrontEndService buyer_frontend_service(
       CreateClientRegistry(

@@ -43,6 +43,7 @@
 #include "services/common/util/async_task_tracker.h"
 #include "services/common/util/cancellation_wrapper.h"
 #include "services/common/util/client_contexts.h"
+#include "services/seller_frontend_service/util/chaffing_utils.h"
 #include "src/concurrent/executor.h"
 #include "src/encryption/key_fetcher/interface/key_fetcher_manager_interface.h"
 
@@ -96,6 +97,7 @@ class GetBidsUnaryReactor : public grpc::ServerUnaryReactor {
       CryptoClientWrapperInterface* crypto_client,
       KVAsyncClient* kv_async_client, server_common::Executor& executor,
       const RandomNumberGeneratorFactory& rng_factory,
+      const ChaffMedianTrackers& chaff_median_trackers,
       bool enable_benchmarking = false);
 
   explicit GetBidsUnaryReactor(
@@ -110,6 +112,7 @@ class GetBidsUnaryReactor : public grpc::ServerUnaryReactor {
       CryptoClientWrapperInterface* crypto_client,
       KVAsyncClient* kv_async_client, server_common::Executor& executor,
       const RandomNumberGeneratorFactory& rng_factory,
+      const ChaffMedianTrackers& chaff_median_trackers,
       bool enable_benchmarking = false);
 
   // GetBidsUnaryReactor is neither copyable nor movable.
@@ -203,7 +206,8 @@ class GetBidsUnaryReactor : public grpc::ServerUnaryReactor {
   grpc::Status decrypt_status_;
 
   // Whether chaffing is enabled on the server.
-  const bool chaffing_enabled_;
+  const bool chaffing_v1_enabled_;
+  const bool chaffing_v2_enabled_;
 
   // Pseudo random number generator for chaffing and debug sampling.
   std::unique_ptr<RandomNumberGenerator> rng_;
@@ -270,6 +274,9 @@ class GetBidsUnaryReactor : public grpc::ServerUnaryReactor {
   bool should_export_debug_ = false;
 
   server_common::Executor& executor_;
+
+  const ChaffMedianTrackers& chaff_median_trackers_;
+  absl::Time start_ = absl::Now();
 };
 
 }  // namespace privacy_sandbox::bidding_auction_servers

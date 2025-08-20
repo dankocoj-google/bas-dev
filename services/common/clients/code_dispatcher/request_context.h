@@ -22,8 +22,12 @@
 #include <utility>
 #include <variant>
 
+#include <grpcpp/client_context.h>
+
+#include "absl/base/nullability.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "services/common/clients/cancellable_grpc_context_manager.h"
 #include "services/common/loggers/request_log_context.h"
 #include "services/common/metric/server_definition.h"
 #include "src/logger/request_context_impl.h"
@@ -106,13 +110,47 @@ class RomaRequestSharedContext {
     return shared_context->GetMetricContext();
   }
 
+  // Returns a gRPC client context if the CancellableGrpcContextManager
+  // is initialized and not cancelled. Optionally, a timeout can be specified.
+  absl::StatusOr<std::shared_ptr<grpc::ClientContext>>
+  GetCancellableClientContext(
+      std::optional<std::int64_t> timeout = absl::nullopt) const {
+    if (grpc_context_manager_ptr_ == nullptr) {
+      return absl::NotFoundError(
+          "CancellableGrpcContextManager not available in this context.");
+    }
+    std::shared_ptr<grpc::ClientContext> client_context =
+        grpc_context_manager_ptr_->CreateClientContext();
+    if (client_context == nullptr) {
+      return absl::CancelledError("Request has been cancelled.");
+    }
+    if (timeout.has_value()) {
+      client_context->set_deadline(
+          absl::ToChronoTime(absl::Now() + absl::Milliseconds(*timeout)));
+    }
+    return client_context;
+  }
+
+  // For metric and debugging - tracks how many RPC has been completed
+  // to determine how many active RPCs are being cancelled.
+  void ReportRPCFinish() const {
+    if (grpc_context_manager_ptr_ != nullptr) {
+      grpc_context_manager_ptr_->ReportRPCFinish();
+    }
+  }
+
   friend class RomaRequestContextFactory;
 
  private:
   explicit RomaRequestSharedContext(
-      const std::shared_ptr<RomaRequestContext>& roma_request_context)
-      : roma_request_context_(roma_request_context) {}
+      const std::shared_ptr<RomaRequestContext>& roma_request_context,
+      std::shared_ptr<CancellableGrpcContextManager> grpc_manager_ptr)
+      : roma_request_context_(roma_request_context),
+        grpc_context_manager_ptr_(std::move(grpc_manager_ptr)) {}
+
   std::weak_ptr<RomaRequestContext> roma_request_context_;
+  std::shared_ptr<CancellableGrpcContextManager> grpc_context_manager_ptr_ =
+      nullptr;
 };
 
 // RomaRequestContextFactory holds a RomaRequestContext. Shared copies of this
@@ -129,8 +167,16 @@ class RomaRequestContextFactory {
       : roma_request_context_(std::make_shared<RomaRequestContext>(
             context_map, debug_config, std::move(debug_info))) {}
 
-  RomaRequestSharedContext Create() {
-    return RomaRequestSharedContext(roma_request_context_);
+  // Creates a shared context without a gRPC manager.
+  RomaRequestSharedContext Create() const {
+    return RomaRequestSharedContext(roma_request_context_, nullptr);
+  }
+
+  // Creates a shared context with a gRPC manager.
+  RomaRequestSharedContext Create(
+      std::shared_ptr<CancellableGrpcContextManager> grpc_manager_ptr) const {
+    return RomaRequestSharedContext(roma_request_context_,
+                                    std::move(grpc_manager_ptr));
   }
 
   RomaRequestContextFactory(RomaRequestContextFactory&& other) = delete;
@@ -152,9 +198,8 @@ RomaRequestSharedContext RomaSharedContextWithMetric(
   metric::MetricContextMap<RequestT>()->Get(request);
   auto metric_context = metric::MetricContextMap<RequestT>()->Remove(request);
   PS_CHECK_OK(metric_context, log_context);
-  absl::StatusOr<std::shared_ptr<RomaRequestContext>> roma_shared_context =
-      shared_context.GetRomaRequestContext();
-  if (roma_shared_context.ok()) {
+  if (auto roma_shared_context = shared_context.GetRomaRequestContext();
+      roma_shared_context.ok()) {
     (*roma_shared_context)->SetMetricContext(std::move(*metric_context));
   } else {
     PS_LOG(ERROR, log_context) << "Failed to retrieve RomaRequestContext: "

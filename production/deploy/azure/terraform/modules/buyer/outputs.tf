@@ -14,12 +14,12 @@
 
 output "fe_service_ip" {
   description = "Frontend Service IP Address"
-  value       = module.services.fe_service_ip
+  value       = module.bidding-auction.fe_service_ip
 }
 
 output "service_ip" {
   description = "Service IP Address"
-  value       = module.services.service_ip
+  value       = module.bidding-auction.service_ip
 }
 
 output "collector_ip" {
@@ -30,4 +30,13 @@ output "collector_ip" {
 output "parc_ip" {
   description = "Parc Service IP Address"
   value       = module.parc.parc_ip
+}
+
+output "aks_vnet_id" {
+  value = module.networking.aks_vnet_id
+}
+
+output "prometheus_monitor_workspace_id" {
+  description = "The ID of the Prometheus Monitor Workspace."
+  value       = var.use_managed_monitoring ? one(module.prometheus).prometheus_monitor_workspace_id : null
 }

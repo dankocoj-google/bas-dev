@@ -32,7 +32,7 @@ class MovingMedianManager {
   explicit MovingMedianManager(const absl::flat_hash_set<std::string>& buyers,
                                size_t window_size, float sampling_probability);
 
-  virtual ~MovingMedianManager() {}
+  virtual ~MovingMedianManager() = default;
 
   // Adds a value to a buyer's moving median window.
   virtual absl::Status AddNumberToBuyerWindow(absl::string_view buyer,
@@ -46,7 +46,7 @@ class MovingMedianManager {
   virtual absl::StatusOr<bool> IsWindowFilled(absl::string_view buyer) const;
 
  private:
-  absl::flat_hash_map<absl::string_view, MovingMedian> moving_medians_by_buyer_;
+  absl::flat_hash_map<std::string, MovingMedian> moving_medians_by_buyer_;
 };
 
 }  // namespace privacy_sandbox::bidding_auction_servers

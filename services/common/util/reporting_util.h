@@ -53,6 +53,8 @@ inline constexpr absl::string_view kDebugUrlRejectedForExceedingSize =
 inline constexpr absl::string_view kDebugUrlRejectedForExceedingTotalSize =
     "[Rejected] Total size of received URLs exceeded max allowed total size "
     "across all URLs";
+inline constexpr absl::string_view kDebugUrlRejectedDuringEnrollmentCheck =
+    "[Rejected] URL is not enrolled for Protected Audience API";
 inline constexpr absl::string_view kBuyerDebugUrlSentToSeller =
     "[Validated] Sent to seller";
 

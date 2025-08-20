@@ -33,6 +33,8 @@ cc_library(
         "//services/bidding_service:cddl_spec_cache",
         "//services/bidding_service:egress_schema_cache",
         "//services/bidding_service:generate_bids_reactor",
+        "//services/bidding_service/byob:proto_utils",
+        "//services/common/attestation:adtech_enrollment_cache",
         "//services/common/clients:client_factory_template",
         "//services/common/clients/auction_server:async_client",
         "//services/common/clients/bidding_server:async_client",

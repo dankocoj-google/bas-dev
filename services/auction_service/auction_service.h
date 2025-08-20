@@ -24,6 +24,7 @@
 #include "api/bidding_auction_servers.grpc.pb.h"
 #include "services/auction_service/data/runtime_config.h"
 #include "services/auction_service/score_ads_reactor.h"
+#include "services/common/attestation/adtech_enrollment_cache.h"
 #include "src/encryption/key_fetcher/interface/key_fetcher_manager_interface.h"
 #include "src/public/cpio/interface/crypto_client/crypto_client_interface.h"
 
@@ -35,7 +36,8 @@ using ScoreAdsReactorFactory =
         ScoreAdsResponse* response,
         server_common::KeyFetcherManagerInterface* key_fetcher_manager,
         CryptoClientWrapperInterface* crypto_client,
-        const AuctionServiceRuntimeConfig& runtime_config)>;
+        const AuctionServiceRuntimeConfig& runtime_config,
+        AdtechEnrollmentCacheInterface* adtech_attestation_cache)>;
 
 // AuctionService implements business logic for running an auction
 // that takes input from the SellerFrontEndService in the form of bids and
@@ -50,11 +52,13 @@ class AuctionService final : public Auction::CallbackService {
       std::unique_ptr<server_common::KeyFetcherManagerInterface>
           key_fetcher_manager,
       std::unique_ptr<CryptoClientWrapperInterface> crypto_client,
-      AuctionServiceRuntimeConfig runtime_config)
+      AuctionServiceRuntimeConfig runtime_config,
+      AdtechEnrollmentCacheInterface* adtech_attestation_cache = nullptr)
       : score_ads_reactor_factory_(std::move(score_ads_reactor_factory)),
         key_fetcher_manager_(std::move(key_fetcher_manager)),
         crypto_client_(std::move(crypto_client)),
-        runtime_config_(std::move(runtime_config)) {}
+        runtime_config_(std::move(runtime_config)),
+        adtech_attestation_cache_(adtech_attestation_cache) {}
   // Scores ads by running an ad auction.
   //
   // This is the API that is accessed by the SellerFrontEndService. This is the
@@ -76,6 +80,7 @@ class AuctionService final : public Auction::CallbackService {
       key_fetcher_manager_;
   std::unique_ptr<CryptoClientWrapperInterface> crypto_client_;
   AuctionServiceRuntimeConfig runtime_config_;
+  AdtechEnrollmentCacheInterface* adtech_attestation_cache_;
 };
 
 }  // namespace privacy_sandbox::bidding_auction_servers

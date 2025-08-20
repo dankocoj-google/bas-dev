@@ -1,0 +1,2642 @@
+{
+  "lenses": {
+    "0": {
+      "order": 0,
+      "parts": {
+        "0": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "initiated_request.count"
+                        },
+                        "name": "initiated_request.count",
+                        "namespace": "azure.applicationinsights",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg initiated_request.count for ${operator}-${environment}-{region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/initiated_request.count",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "initiated_request.count"
+                        }
+                      }
+                    ],
+                    "title": "Avg initiated_request.count for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "1": {
+          "position": {
+            "x": 6,
+            "y": 0,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 1,
+                        "metricVisualization": {
+                          "displayName": "request.count"
+                        },
+                        "name": "request.count",
+                        "namespace": "azure.applicationinsights",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Sum request.count for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/request.count",
+                        "aggregationType": 1,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "request.count"
+                        }
+                      }
+                    ],
+                    "title": "Sum request.count for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "2": {
+          "position": {
+            "x": 12,
+            "y": 0,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "request.duration_ms"
+                        },
+                        "name": "request.duration_ms",
+                        "namespace": "azure.applicationinsights",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg request.duration_ms for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/request.duration_ms",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "request.duration_ms"
+                        }
+                      }
+                    ],
+                    "title": "Avg request.duration_ms for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "3": {
+          "position": {
+            "x": 18,
+            "y": 0,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "request.failed_count"
+                        },
+                        "name": "customMetrics/request.failed_count",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg request.failed_count for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/request.failed_count",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "request.failed_count"
+                        }
+                      }
+                    ],
+                    "title": "Avg request.failed_count for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "4": {
+          "position": {
+            "x": 0,
+            "y": 4,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "request.size_bytes"
+                        },
+                        "name": "customMetrics/request.size_bytes",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg request.size_bytes for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/request.size_bytes",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "request.size_bytes"
+                        }
+                      }
+                    ],
+                    "title": "Avg request.size_bytes for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "5": {
+          "position": {
+            "x": 6,
+            "y": 4,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "response.size_bytes"
+                        },
+                        "name": "customMetrics/response.size_bytes",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg response.size_bytes for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/response.size_bytes",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "response.size_bytes"
+                        }
+                      }
+                    ],
+                    "title": "Avg response.size_bytes for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "6": {
+          "position": {
+            "x": 12,
+            "y": 4,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "sfe.auction_config.size_bytes"
+                        },
+                        "name": "customMetrics/sfe.auction_config.size_bytes",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg sfe.auction_config.size_bytes for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/sfe.auction_config.size_bytes",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "sfe.auction_config.size_bytes"
+                        }
+                      }
+                    ],
+                    "title": "Avg sfe.auction_config.size_bytes for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "7": {
+          "position": {
+            "x": 18,
+            "y": 4,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "sfe.errors_count"
+                        },
+                        "name": "customMetrics/sfe.errors_count",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg sfe.errors_count for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/sfe.errors_count",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "sfe.errors_count"
+                        }
+                      }
+                    ],
+                    "title": "Avg sfe.errors_count for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "8": {
+          "position": {
+            "x": 0,
+            "y": 8,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "sfe.initiated_request.to_bfe.count"
+                        },
+                        "name": "customMetrics/sfe.initiated_request.to_bfe.count",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg sfe.initiated_request.to_bfe.count for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/sfe.initiated_request.to_bfe.count",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "sfe.initiated_request.to_bfe.count"
+                        }
+                      }
+                    ],
+                    "title": "Avg sfe.initiated_request.to_bfe.count for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "9": {
+          "position": {
+            "x": 6,
+            "y": 8,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "sfe.initiated_request.to_bfe.duration_ms"
+                        },
+                        "name": "customMetrics/sfe.initiated_request.to_bfe.duration_ms",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg sfe.initiated_request.to_bfe.duration_ms for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/sfe.initiated_request.to_bfe.duration_ms",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "sfe.initiated_request.to_bfe.duration_ms"
+                        }
+                      }
+                    ],
+                    "title": "Avg sfe.initiated_request.to_bfe.duration_ms for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/region",
+                        "customDimensions/service.name",
+                        "customDimensions/service.instance.id"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "10": {
+          "position": {
+            "x": 12,
+            "y": 8,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "sfe.initiated_request.to_bfe.errors_count_by_buyer"
+                        },
+                        "name": "customMetrics/sfe.initiated_request.to_bfe.errors_count_by_buyer",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg sfe.initiated_request.to_bfe.errors_count_by_buyer for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "sfe.initiated_request.to_bfe.errors_count_by_buyer"
+                        },
+                        "name": "customMetrics/sfe.initiated_request.to_bfe.errors_count_by_buyer",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "title": "Avg sfe.initiated_request.to_bfe.errors_count_by_buyer for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "disablePinning": true,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "11": {
+          "position": {
+            "x": 18,
+            "y": 8,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "sfe.initiated_request.to_bfe.errors_count_by_status"
+                        },
+                        "name": "customMetrics/sfe.initiated_request.to_bfe.errors_count_by_status",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg sfe.initiated_request.to_bfe.errors_count_by_status for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "sfe.initiated_request.to_bfe.errors_count_by_status"
+                        },
+                        "name": "customMetrics/sfe.initiated_request.to_bfe.errors_count_by_status",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "title": "Avg sfe.initiated_request.to_bfe.errors_count_by_status for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "disablePinning": true,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "12": {
+          "position": {
+            "x": 0,
+            "y": 12,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "sfe.initiated_request.to_bfe.size_bytes"
+                        },
+                        "name": "customMetrics/sfe.initiated_request.to_bfe.size_bytes",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg sfe.initiated_request.to_bfe.size_bytes for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/sfe.initiated_request.to_bfe.size_bytes",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "sfe.initiated_request.to_bfe.size_bytes"
+                        }
+                      }
+                    ],
+                    "title": "Avg sfe.initiated_request.to_bfe.size_bytes for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/region",
+                        "customDimensions/service.name",
+                        "customDimensions/service.instance.id"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "13": {
+          "position": {
+            "x": 6,
+            "y": 12,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "sfe.initiated_response.to_bfe.size_bytes"
+                        },
+                        "name": "customMetrics/sfe.initiated_response.to_bfe.size_bytes",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg sfe.initiated_response.to_bfe.size_bytes for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/sfe.initiated_response.to_bfe.size_bytes",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "sfe.initiated_response.to_bfe.size_bytes"
+                        }
+                      }
+                    ],
+                    "title": "Avg sfe.initiated_response.to_bfe.size_bytes for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "14": {
+          "position": {
+            "x": 12,
+            "y": 12,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "sfe.protected_ciphertext.size_bytes"
+                        },
+                        "name": "customMetrics/sfe.protected_ciphertext.size_bytes",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg sfe.protected_ciphertext.size_bytes for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/sfe.protected_ciphertext.size_bytes",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "sfe.protected_ciphertext.size_bytes"
+                        }
+                      }
+                    ],
+                    "title": "Avg sfe.protected_ciphertext.size_bytes for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "15": {
+          "position": {
+            "x": 18,
+            "y": 12,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "sfe.protected_ciphertext.request_age_seconds"
+                        },
+                        "name": "customMetrics/sfe.protected_ciphertext.request_age_seconds",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg sfe.protected_ciphertext.request_age_seconds for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/sfe.protected_ciphertext.request_age_seconds",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "sfe.protected_ciphertext.request_age_seconds"
+                        }
+                      }
+                    ],
+                    "title": "Avg sfe.protected_ciphertext.request_age_seconds for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "16": {
+          "position": {
+            "x": 0,
+            "y": 16,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "system.cpu.percent"
+                        },
+                        "name": "customMetrics/system.cpu.percent",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg system.cpu.percent for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/system.cpu.percent",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "system.cpu.percent"
+                        }
+                      }
+                    ],
+                    "title": "Avg system.cpu.percent for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "17": {
+          "position": {
+            "x": 6,
+            "y": 16,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "system.key_fetch.failure_count"
+                        },
+                        "name": "customMetrics/system.key_fetch.failure_count",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg system.key_fetch.failure_count for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/system.key_fetch.failure_count",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "system.key_fetch.failure_count"
+                        }
+                      }
+                    ],
+                    "title": "Avg system.key_fetch.failure_count for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "18": {
+          "position": {
+            "x": 12,
+            "y": 16,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "system.key_fetch.num_keys_cached"
+                        },
+                        "name": "customMetrics/system.key_fetch.num_keys_cached",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg system.key_fetch.num_keys_cached for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/system.key_fetch.num_keys_cached",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "system.key_fetch.num_keys_cached"
+                        }
+                      }
+                    ],
+                    "title": "Avg system.key_fetch.num_keys_cached for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "19": {
+          "position": {
+            "x": 18,
+            "y": 16,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "system.key_fetch.num_keys_parsed"
+                        },
+                        "name": "customMetrics/system.key_fetch.num_keys_parsed",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg system.key_fetch.num_keys_parsed for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/system.key_fetch.num_keys_parsed",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "system.key_fetch.num_keys_parsed"
+                        }
+                      }
+                    ],
+                    "title": "Avg system.key_fetch.num_keys_parsed for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "20": {
+          "position": {
+            "x": 0,
+            "y": 20,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "system.memory.usage_kb"
+                        },
+                        "name": "customMetrics/system.memory.usage_kb",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg system.memory.usage_kb for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/system.memory.usage_kb",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "system.memory.usage_kb"
+                        }
+                      }
+                    ],
+                    "title": "Avg system.memory.usage_kb for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "21": {
+          "position": {
+            "x": 6,
+            "y": 20,
+            "colSpan": 6,
+            "rowSpan": 4
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "sharedTimeRange",
+                "isOptional": true
+              },
+              {
+                "name": "options",
+                "value": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "aggregationType": 4,
+                        "metricVisualization": {
+                          "displayName": "system.thread.count"
+                        },
+                        "name": "customMetrics/system.thread.count",
+                        "namespace": "microsoft.insights/components/kusto",
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        }
+                      }
+                    ],
+                    "timespan": {
+                      "grain": 1,
+                      "relative": {
+                        "duration": 86400000
+                      },
+                      "showUTCTime": false
+                    },
+                    "title": "Avg system.thread.count for ${operator}-${environment}-${region}-otel",
+                    "titleKind": 1,
+                    "visualization": {
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      }
+                    }
+                  }
+                },
+                "isOptional": true
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/MonitorChartPart",
+            "settings": {
+              "content": {
+                "options": {
+                  "chart": {
+                    "metrics": [
+                      {
+                        "resourceMetadata": {
+                          "id": "${application_insights_id}"
+                        },
+                        "name": "customMetrics/system.thread.count",
+                        "aggregationType": 4,
+                        "namespace": "microsoft.insights/components/kusto",
+                        "metricVisualization": {
+                          "displayName": "system.thread.count"
+                        }
+                      }
+                    ],
+                    "title": "Avg system.thread.count for ${operator}-${environment}-otel by Multiple Dimensions",
+                    "titleKind": 1,
+                    "visualization": {
+                      "chartType": 2,
+                      "legendVisualization": {
+                        "hideHoverCard": false,
+                        "hideLabelNames": true,
+                        "isVisible": true,
+                        "position": 2
+                      },
+                      "axisVisualization": {
+                        "x": {
+                          "axisType": 2,
+                          "isVisible": true
+                        },
+                        "y": {
+                          "axisType": 1,
+                          "isVisible": true
+                        }
+                      },
+                      "disablePinning": true
+                    },
+                    "grouping": {
+                      "dimension": [
+                        "customDimensions/service.instance.id",
+                        "customDimensions/service.name",
+                        "customDimensions/region"
+                      ],
+                      "sort": 2,
+                      "top": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "metadata": {
+    "model": {
+      "timeRange": {
+        "value": {
+          "relative": {
+            "duration": 24,
+            "timeUnit": 1
+          }
+        },
+        "type": "MsPortalFx.Composition.Configuration.ValueTypes.TimeRange"
+      },
+      "filterLocale": {
+        "value": "en-us"
+      },
+      "filters": {
+        "value": {
+          "MsPortalFx_TimeRange": {
+            "model": {
+              "format": "utc",
+              "granularity": "auto",
+              "relative": "24h"
+            },
+            "displayCache": {
+              "name": "UTC Time",
+              "value": "Past 24 hours"
+            },
+            "filteredPartIds": [
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b25460631",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b25460633",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b25460635",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b25460637",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b25460639",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b2546063b",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b2546063d",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b2546063f",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b25460641",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b25460643",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b25460645",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b25460647",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b25460649",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b2546064b",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b2546064d",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b2546064f",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b25460651",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b25460653",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b25460655",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b25460657",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b25460659",
+              "StartboardPart-MonitorChartPart-3f0fe043-3707-45ea-b137-b98b2546065b"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

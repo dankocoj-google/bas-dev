@@ -15,10 +15,13 @@
 #ifndef PRIVACY_SANDBOX_BIDDING_AUCTION_SERVERS_TEST_UTIL_H_
 #define PRIVACY_SANDBOX_BIDDING_AUCTION_SERVERS_TEST_UTIL_H_
 
+#include <future>
+#include <memory>
 #include <string>
+#include <thread>
 
-#include "gtest/gtest.h"
-#include "proto/inference_sidecar.pb.h"
+#include "absl/strings/str_cat.h"
+#include "absl/time/time.h"
 
 namespace privacy_sandbox::bidding_auction_servers::inference {
 
@@ -52,7 +55,6 @@ inline void CheckMetricList(
         << "Unexpected partition for metric " << key;
   }
 }
-
 }  // namespace privacy_sandbox::bidding_auction_servers::inference
 
 #endif  // PRIVACY_SANDBOX_BIDDING_AUCTION_SERVERS_TEST_UTIL_H_

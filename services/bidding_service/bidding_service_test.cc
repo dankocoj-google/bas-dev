@@ -82,13 +82,14 @@ TEST_F(BiddingServiceTest, InstantiatesGenerateBidsReactor) {
           const GenerateBidsRequest* request, GenerateBidsResponse* response,
           server_common::KeyFetcherManagerInterface* key_fetcher_manager,
           CryptoClientWrapperInterface* crypto_client,
-          const BiddingServiceRuntimeConfig& runtime_config) {
+          const BiddingServiceRuntimeConfig& runtime_config,
+          AdtechEnrollmentCacheInterface* adtech_attestation_cache) {
         std::unique_ptr<BiddingBenchmarkingLogger> benchmarkingLogger =
             std::make_unique<BiddingNoOpLogger>();
         auto mock = std::make_unique<MockGenerateBidsReactor>(
             context, v8_dispatch_client_, request, response, "",
             std::move(benchmarkingLogger), key_fetcher_manager, crypto_client,
-            runtime_config);
+            runtime_config, adtech_attestation_cache);
         EXPECT_CALL(*mock, Execute).Times(1);
         init_pending.DecrementCount();
         return mock.release();
@@ -132,11 +133,12 @@ TEST_F(BiddingServiceTest, EncryptsResponseEvenOnException) {
           const GenerateBidsRequest* request, GenerateBidsResponse* response,
           server_common::KeyFetcherManagerInterface* key_fetcher_manager,
           CryptoClientWrapperInterface* crypto_client,
-          const BiddingServiceRuntimeConfig& runtime_config) {
+          const BiddingServiceRuntimeConfig& runtime_config,
+          AdtechEnrollmentCacheInterface* adtech_attestation_cache) {
         auto generate_bids_reactor = std::make_unique<GenerateBidsReactor>(
             context, v8_dispatch_client_, request, response,
             std::move(benchmarking_logger_), key_fetcher_manager, crypto_client,
-            runtime_config);
+            runtime_config, adtech_attestation_cache);
         init_pending.DecrementCount();
         return generate_bids_reactor.release();
       },
@@ -189,11 +191,12 @@ class BiddingProtectedAppSignalsTest : public BiddingServiceTest {
                GenerateBidsResponse* response,
                server_common::KeyFetcherManagerInterface* key_fetcher_manager,
                CryptoClientWrapperInterface* crypto_client,
-               const BiddingServiceRuntimeConfig& runtime_config) {
+               const BiddingServiceRuntimeConfig& runtime_config,
+               AdtechEnrollmentCacheInterface* adtech_attestation_cache) {
           auto generate_bids_reactor = std::make_unique<GenerateBidsReactor>(
               context, v8_dispatch_client_, request, response,
               std::move(benchmarking_logger_), key_fetcher_manager,
-              crypto_client, runtime_config);
+              crypto_client, runtime_config, adtech_attestation_cache);
           return generate_bids_reactor.release();
         },
         CreateKeyFetcherManager(config_, /*public_key_fetcher=*/nullptr),
@@ -218,7 +221,8 @@ class BiddingProtectedAppSignalsTest : public BiddingServiceTest {
         },
         std::move(ad_retrieval_client_),
         /*kv_async_client=*/nullptr, std::move(egress_schema_cache_),
-        std::move(limited_egress_schema_cache_));
+        std::move(limited_egress_schema_cache_),
+        adtech_enrollment_cache_.get());
   }
 
   std::unique_ptr<EgressSchemaCacheMock> CreateEgressSchemaCacheMock() {
@@ -243,6 +247,8 @@ class BiddingProtectedAppSignalsTest : public BiddingServiceTest {
       CreateEgressSchemaCacheMock();
   std::unique_ptr<EgressSchemaCacheMock> limited_egress_schema_cache_ =
       CreateEgressSchemaCacheMock();
+  std::unique_ptr<AdtechEnrollmentCacheMock> adtech_enrollment_cache_ =
+      std::make_unique<AdtechEnrollmentCacheMock>();
   int num_roma_requests_ = 0;
 };
 

@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@google_privacysandbox_servers_common//third_party:container_deps.bzl", common_container_deps = "container_deps")
 load("@io_bazel_rules_docker//container:container.bzl", "container_pull")
+load("//builders/bazel:container_deps.bzl", common_container_deps = "container_deps")
 
 def container_deps():
     common_container_deps()

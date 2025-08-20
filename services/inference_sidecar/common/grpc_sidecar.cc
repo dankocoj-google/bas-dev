@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Runs a simple gRPC server.
-
 #include "grpc_sidecar.h"
 
 #include <memory>
@@ -21,118 +19,129 @@
 #include <utility>
 #include <vector>
 
-#include <grpcpp/grpcpp.h>
-#include <grpcpp/server.h>
-#include <grpcpp/server_context.h>
-#include <grpcpp/server_posix.h>
-
-#include "absl/container/flat_hash_set.h"
+#include "absl/flags/flag.h"
 #include "absl/log/absl_log.h"
 #include "absl/log/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
-#include "absl/synchronization/mutex.h"
-#include "absl/time/clock.h"
-#include "modules/module_interface.h"
-#include "proto/inference_sidecar.grpc.pb.h"
-#include "proto/inference_sidecar.pb.h"
 #include "sandbox/sandbox_worker.h"
 #include "sandboxed_api/sandbox2/comms.h"
 #include "src/util/status_macro/status_util.h"
+#include "utils/cancellation_util.h"
 #include "utils/cpu.h"
 #include "utils/log.h"
 #include "utils/tcmalloc.h"
 
+ABSL_FLAG(bool, inference_enable_cancellation_at_sidecar, false,
+          "When enabled, cancellation will be propagated to modules of "
+          "the inference sidecar.");
+
 namespace privacy_sandbox::bidding_auction_servers::inference {
-namespace {
 
 // Uses 600000 ms for 10 mins.
 constexpr int kGrpcServerHandshakeTimeoutMs = 600000;
 constexpr int kGrpcKeepAliveTimeoutMs = 600000;
 
-// Inference service implementation.
-class InferenceServiceImpl final : public InferenceService::Service {
- public:
-  InferenceServiceImpl(std::unique_ptr<ModuleInterface> inference_module)
-      : inference_module_(std::move(inference_module)) {}
+InferenceServiceImpl::InferenceServiceImpl(
+    const InferenceSidecarRuntimeConfig& config)
+    : inference_module_(ModuleInterface::Create(config)) {}
 
-  grpc::Status RegisterModel(grpc::ServerContext* context,
-                             const RegisterModelRequest* request,
-                             RegisterModelResponse* response) override {
-    absl::StatusOr<RegisterModelResponse> register_model_response =
-        inference_module_->RegisterModel(*request);
-    if (!register_model_response.ok()) {
-      return server_common::FromAbslStatus(register_model_response.status());
-    }
-
-    // save the model path since it was registered successfully
-    absl::WriterMutexLock write_model_paths_lock(&model_paths_mutex_);
-    model_paths_.insert(request->model_spec().model_path());
-
-    *response = register_model_response.value();
-
-    return grpc::Status::OK;
+grpc::ServerUnaryReactor* InferenceServiceImpl::RegisterModel(
+    grpc::CallbackServerContext* context, const RegisterModelRequest* request,
+    RegisterModelResponse* response) {
+  grpc::ServerUnaryReactor* reactor = context->DefaultReactor();
+  RETURN_GRPC_IF_CANCELLED(*context, CancelLocation::kRegModelEnter, reactor);
+  GRPCContextAdapter cancellation_context{
+      *context, absl::GetFlag(FLAGS_inference_enable_cancellation_at_sidecar)};
+  absl::StatusOr<RegisterModelResponse> register_model_response =
+      inference_module_->RegisterModel(*request, cancellation_context);
+  if (!register_model_response.ok()) {
+    reactor->Finish(
+        server_common::FromAbslStatus(register_model_response.status()));
+    return reactor;
   }
 
-  grpc::Status DeleteModel(grpc::ServerContext* context,
-                           const DeleteModelRequest* request,
-                           DeleteModelResponse* response) override {
-    absl::StatusOr<DeleteModelResponse> delete_model_response =
-        inference_module_->DeleteModel(*request);
-    if (!delete_model_response.ok()) {
-      return server_common::FromAbslStatus(delete_model_response.status());
-    }
+  // Save the model path since it was registered successfully.
+  absl::WriterMutexLock write_model_paths_lock(&model_paths_mutex_);
+  model_paths_.insert(request->model_spec().model_path());
 
-    // save the model path since it was registered successfully
-    absl::WriterMutexLock write_model_paths_lock(&model_paths_mutex_);
-    model_paths_.erase(request->model_spec().model_path());
+  *response = *register_model_response;
+  reactor->Finish(grpc::Status::OK);
+  return reactor;
+}
 
-    *response = delete_model_response.value();
-
-    return grpc::Status::OK;
+grpc::ServerUnaryReactor* InferenceServiceImpl::DeleteModel(
+    grpc::CallbackServerContext* context, const DeleteModelRequest* request,
+    DeleteModelResponse* response) {
+  grpc::ServerUnaryReactor* reactor = context->DefaultReactor();
+  RETURN_GRPC_IF_CANCELLED(*context, CancelLocation::kDelModelEnter, reactor);
+  GRPCContextAdapter cancellation_context{
+      *context, absl::GetFlag(FLAGS_inference_enable_cancellation_at_sidecar)};
+  absl::StatusOr<DeleteModelResponse> delete_model_response =
+      inference_module_->DeleteModel(*request, cancellation_context);
+  if (!delete_model_response.ok()) {
+    reactor->Finish(
+        server_common::FromAbslStatus(delete_model_response.status()));
+    return reactor;
   }
 
-  grpc::Status Predict(grpc::ServerContext* context,
-                       const PredictRequest* request,
-                       PredictResponse* response) override {
-    RequestContext request_context(
-        [response] { return response->mutable_debug_info(); },
-        request->is_consented());
-    absl::StatusOr<PredictResponse> predict_response =
-        inference_module_->Predict(*request, request_context);
-    if (!predict_response.ok()) {
-      ABSL_LOG(ERROR) << predict_response.status().message();
-      return server_common::FromAbslStatus(predict_response.status());
-    }
-    *(response->mutable_metrics_list()) =
-        std::move(*predict_response->mutable_metrics_list());
+  // Remove the model path since it was deleted successfully.
+  absl::WriterMutexLock write_model_paths_lock(&model_paths_mutex_);
+  model_paths_.erase(request->model_spec().model_path());
+
+  *response = *delete_model_response;
+  reactor->Finish(grpc::Status::OK);
+  return reactor;
+}
+
+grpc::ServerUnaryReactor* InferenceServiceImpl::Predict(
+    grpc::CallbackServerContext* context, const PredictRequest* request,
+    PredictResponse* response) {
+  grpc::ServerUnaryReactor* reactor = context->DefaultReactor();
+  RETURN_GRPC_IF_CANCELLED(*context, CancelLocation::kPredictEnter, reactor);
+  RequestContext log_context(
+      [response] { return response->mutable_debug_info(); },
+      request->is_consented());
+  GRPCContextAdapter cancellation_context{
+      *context, absl::GetFlag(FLAGS_inference_enable_cancellation_at_sidecar)};
+  absl::StatusOr<PredictResponse> predict_response =
+      inference_module_->Predict(*request, log_context, cancellation_context);
+
+  if (!predict_response.ok()) {
+    ABSL_LOG(ERROR) << predict_response.status();
+    reactor->Finish(server_common::FromAbslStatus(predict_response.status()));
+    return reactor;
+  }
+
+  std::swap(*response->mutable_metrics_list(),
+            *predict_response->mutable_metrics_list());
+  if (predict_response->output_data_case() == PredictResponse::kProtoOutput) {
+    response->mutable_proto_output()->Swap(
+        predict_response->mutable_proto_output());
+  } else {
     response->set_output(std::move(*predict_response->mutable_output()));
-
-    return grpc::Status::OK;
   }
 
-  // TODO: b/348968123) - Relook at API implementation
-  grpc::Status GetModelPaths(grpc::ServerContext* context,
-                             const GetModelPathsRequest* request,
-                             GetModelPathsResponse* response) override {
-    absl::ReaderMutexLock read_model_paths_lock(&model_paths_mutex_);
+  reactor->Finish(grpc::Status::OK);
+  return reactor;
+}
 
-    for (std::string model_path : model_paths_) {
-      ModelSpec* model_spec = response->add_model_specs();
-      model_spec->set_model_path(model_path);
-    }
+// TODO: (b/348968123) - Relook at API implementation.
+grpc::ServerUnaryReactor* InferenceServiceImpl::GetModelPaths(
+    grpc::CallbackServerContext* context, const GetModelPathsRequest* request,
+    GetModelPathsResponse* response) {
+  grpc::ServerUnaryReactor* reactor = context->DefaultReactor();
+  RETURN_GRPC_IF_CANCELLED(*context, CancelLocation::kGetPathsEnter, reactor);
+  absl::ReaderMutexLock read_model_paths_lock(&model_paths_mutex_);
 
-    return grpc::Status::OK;
+  for (const std::string& model_path : model_paths_) {
+    ModelSpec* model_spec = response->add_model_specs();
+    model_spec->set_model_path(model_path);
   }
 
- private:
-  std::unique_ptr<ModuleInterface> inference_module_;
-  mutable absl::Mutex model_paths_mutex_;
-  absl::flat_hash_set<std::string> model_paths_
-      ABSL_GUARDED_BY(model_paths_mutex_);
-};
-
-}  // namespace
+  reactor->Finish(grpc::Status::OK);
+  return reactor;
+}
 
 absl::Status SetCpuAffinity(const InferenceSidecarRuntimeConfig& config) {
   if (config.cpuset().empty()) {
@@ -159,6 +168,13 @@ absl::Status SetTcMallocConfig(const InferenceSidecarRuntimeConfig& config) {
   return absl::OkStatus();
 }
 
+absl::Status SetInferenceCancellationFlag(
+    const InferenceSidecarRuntimeConfig& config) {
+  absl::SetFlag(&FLAGS_inference_enable_cancellation_at_sidecar,
+                config.inference_enable_cancellation_at_sidecar());
+  return absl::OkStatus();
+}
+
 absl::Status Run(const InferenceSidecarRuntimeConfig& config) {
   SandboxWorker worker;
   grpc::ServerBuilder builder;
@@ -180,18 +196,22 @@ absl::Status Run(const InferenceSidecarRuntimeConfig& config) {
         absl::StrCat("Expected inference module: ", config.module_name(),
                      ", but got : ", ModuleInterface::GetModuleVersion()));
   }
-  auto server_impl =
-      std::make_unique<InferenceServiceImpl>(ModuleInterface::Create(config));
-  builder.RegisterService(server_impl.get());
+
+  InferenceServiceImpl service(config);
+  builder.RegisterService(&service);
   std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
   if (server == nullptr) {
     ABSL_LOG(ERROR) << "Cannot start the gRPC sidecar.";
     return absl::UnavailableError("Cannot start the gRPC sidecar");
   }
 
-  // Starts up gRPC over IPC.
+  // Starts gRPC over the sandbox IPC file descriptor.
   grpc::AddInsecureChannelFromFd(server.get(), worker.FileDescriptor());
+
+  // Server->Wait() blocks and uses the framework's internal thread pool
+  // to dispatch callbacks to the reactor methods.
   server->Wait();
+  return absl::OkStatus();
 }
 
 }  // namespace privacy_sandbox::bidding_auction_servers::inference

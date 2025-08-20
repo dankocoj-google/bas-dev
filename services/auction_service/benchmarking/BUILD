@@ -59,3 +59,16 @@ cc_binary(
         "@google_privacysandbox_servers_common//src/encryption/key_fetcher/mock:mock_key_fetcher_manager",
     ],
 )
+
+cc_binary(
+    name = "browser_signals_benchmark",
+    testonly = True,
+    srcs = [
+        "browser_signals_benchmark.cc",
+    ],
+    deps = [
+        "//services/auction_service/utils:proto_utils",
+        "@google_benchmark//:benchmark",
+        "@google_benchmark//:benchmark_main",
+    ],
+)

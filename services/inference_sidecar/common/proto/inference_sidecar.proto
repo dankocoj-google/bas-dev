@@ -140,7 +140,7 @@ message InferenceSidecarRuntimeConfig {
   int32 num_intraop_threads = 2;
 
   // Specifies the inference backend module required.
-  // Currently supports "test", "tensorflow_v2_14_0", "pytorch_v2_1_1"
+  // Currently supports "test", "tensorflow_v2_17_0", "pytorch_v2_1_1"
   string module_name = 3;
 
   // Specifies a list of CPU IDs to set the CPU affinity for the sidecar.
@@ -168,6 +168,9 @@ message InferenceSidecarRuntimeConfig {
   int64 tcmalloc_max_total_thread_cache_bytes = 7;
   // The TCMalloc maximum cache size per CPU cache. Uses the default if the value is 0.
   int32 tcmalloc_max_per_cpu_cache_bytes = 8;
+
+  // Enables abort of inference requests if they are cancelled.
+  bool inference_enable_cancellation_at_sidecar = 9;
 }
 
 // Proto to store consented debugging logs. It's passed back with

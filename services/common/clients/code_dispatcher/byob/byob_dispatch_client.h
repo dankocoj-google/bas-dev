@@ -17,16 +17,27 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "absl/functional/any_invocable.h"
 #include "absl/status/statusor.h"
 #include "services/common/clients/code_dispatcher/udf_code_loader_interface.h"
+#include "src/roma/byob/interface/metrics.h"
 
 namespace privacy_sandbox::bidding_auction_servers {
 
+template <typename ServiceResponse>
+struct ByobDispatchResponse {
+  // The response of the execution.
+  ServiceResponse response;
+  // Execution metrics.
+  ::privacy_sandbox::server_common::byob::ProcessRequestMetrics metrics;
+};
+
 // Classes implementing this template and interface are able to execute
 // asynchronous requests using ROMA BYOB.
-template <typename ServiceRequest, typename ServiceResponse>
+template <typename BatchRequest, typename ServiceRequest,
+          typename ServiceResponse>
 class ByobDispatchClient : public UdfCodeLoaderInterface {
  public:
   // Polymorphic class => virtual destructor
@@ -52,7 +63,25 @@ class ByobDispatchClient : public UdfCodeLoaderInterface {
   //         with the output of the execution itself, which is sent to callback.
   virtual absl::Status Execute(
       const ServiceRequest& request, absl::Duration timeout,
-      absl::AnyInvocable<void(absl::StatusOr<ServiceResponse>) &&>
+      absl::AnyInvocable<
+          void(absl::StatusOr<ByobDispatchResponse<ServiceResponse>>) &&>
+          callback) = 0;
+  // Executes a batch of requests asynchronously.
+  //
+  // raw_request: the batch data object.
+  // common_request: a common request object that can be updated for every
+  // request in the batch start_timeout: the maximum time an execution will wait
+  // for a worker execution_timeout: the maximum time this will wait for the
+  // batch of executions to finish after which they will be cancelled callback:
+  // called with a vector of execution outputs return: a status indicating if
+  // the execution request was properly
+  //         accepted by the implementing class. This should not be confused
+  //         with the output of the execution itself, which is sent to callback.
+  virtual absl::Status ExecuteManyWithSharedTimeouts(
+      BatchRequest& raw_request, ServiceRequest common_request,
+      absl::Duration start_timeout, absl::Duration execution_timeout,
+      absl::AnyInvocable<void(std::vector<absl::StatusOr<
+                                  ByobDispatchResponse<ServiceResponse>>>) &&>
           callback) = 0;
 };
 

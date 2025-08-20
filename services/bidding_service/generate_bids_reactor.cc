@@ -28,7 +28,10 @@
 #include "absl/strings/str_format.h"
 #include "services/bidding_service/bidding_v8_constants.h"
 #include "services/bidding_service/code_wrapper/buyer_code_wrapper.h"
+#include "services/bidding_service/inference/inference_flags.h"
+#include "services/bidding_service/utils/browser_signals_util.h"
 #include "services/common/constants/common_constants.h"
+#include "services/common/metric/roma_metric_utils.h"
 #include "services/common/util/cancellation_wrapper.h"
 #include "services/common/util/error_categories.h"
 #include "services/common/util/json_util.h"
@@ -52,72 +55,6 @@ absl::StatusOr<std::string> ProtoToJson(
   PS_RETURN_IF_ERROR(
       google::protobuf::util::MessageToJsonString(proto, &json, options));
   return json;
-}
-
-constexpr char kTopWindowHostname[] = "topWindowHostname";
-constexpr char kSeller[] = "seller";
-constexpr char kTopLevelSeller[] = "topLevelSeller";
-constexpr char kJoinCount[] = "joinCount";
-constexpr char kBidCount[] = "bidCount";
-constexpr char kRecency[] = "recency";
-constexpr char kMultiBidLimit[] = "multiBidLimit";
-constexpr char kPrevWins[] = "prevWins";
-constexpr char kPrevWinsMs[] = "prevWinsMs";
-constexpr char kForDebuggingOnlyInCooldownOrLockout[] =
-    "forDebuggingOnlyInCooldownOrLockout";
-constexpr char kJsonStringEnd[] = R"JSON(",")JSON";
-constexpr char kJsonStringValueStart[] = R"JSON(":")JSON";
-constexpr char kJsonValueStart[] = R"JSON(":)JSON";
-constexpr char kJsonValueEnd[] = R"JSON(,")JSON";
-constexpr char kJsonEmptyString[] = R"JSON("")JSON";
-constexpr char kEmptyDeviceSignals[] = R"JSON({})JSON";
-
-std::string MakeBrowserSignalsForScript(
-    absl::string_view publisher_name, absl::string_view seller,
-    absl::string_view top_level_seller,
-    const BrowserSignalsForBidding& browser_signals, uint32_t data_version,
-    int32_t multi_bid_limit, const ForDebuggingOnlyFlags& fdo_flags) {
-  std::string device_signals_str = R"JSON({")JSON";
-  absl::StrAppend(&device_signals_str, kTopWindowHostname,
-                  kJsonStringValueStart, publisher_name, kJsonStringEnd);
-  absl::StrAppend(&device_signals_str, kSeller, kJsonStringValueStart, seller,
-                  kJsonStringEnd);
-  if (!top_level_seller.empty()) {
-    absl::StrAppend(&device_signals_str, kTopLevelSeller, kJsonStringValueStart,
-                    top_level_seller, kJsonStringEnd);
-  }
-  absl::StrAppend(&device_signals_str, kJoinCount, kJsonValueStart,
-                  browser_signals.join_count(), kJsonValueEnd);
-  absl::StrAppend(&device_signals_str, kBidCount, kJsonValueStart,
-                  browser_signals.bid_count(), kJsonValueEnd);
-  // recency is expected to be in milli seconds.
-  int64_t recency_ms;
-  if (browser_signals.has_recency_ms()) {
-    recency_ms = browser_signals.recency_ms();
-  } else {
-    recency_ms = browser_signals.recency() * 1000;
-  }
-  absl::StrAppend(&device_signals_str, kRecency, kJsonValueStart, recency_ms,
-                  kJsonValueEnd);
-  // TODO(b/394397742): Deprecate prevWins in favor of prevWinsMs.
-  absl::StrAppend(
-      &device_signals_str, kPrevWins, kJsonValueStart,
-      browser_signals.prev_wins().empty() ? kJsonEmptyString
-                                          : browser_signals.prev_wins(),
-      kJsonValueEnd, kPrevWinsMs, kJsonValueStart,
-      browser_signals.prev_wins_ms().empty() ? kJsonEmptyString
-                                             : browser_signals.prev_wins_ms(),
-      kJsonValueEnd);
-  absl::StrAppend(&device_signals_str, kDataVersion, kJsonValueStart,
-                  data_version, kJsonValueEnd);
-  absl::StrAppend(&device_signals_str, kForDebuggingOnlyInCooldownOrLockout,
-                  kJsonValueStart,
-                  fdo_flags.in_cooldown_or_lockout() ? "true" : "false",
-                  kJsonValueEnd);
-  absl::StrAppend(&device_signals_str, kMultiBidLimit, kJsonValueStart,
-                  multi_bid_limit > 0 ? multi_bid_limit : kDefaultMultiBidLimit,
-                  "}");
-  return device_signals_str;
 }
 
 absl::StatusOr<std::string> SerializeRepeatedStringField(
@@ -333,71 +270,6 @@ void ProcessPAggContributions(AdWithBid& bid,
         bid.mutable_private_aggregation_contributions()->begin() + *it);
   }
 }
-
-template <typename T>
-void UpdateMaxMetric(const absl::flat_hash_map<std::string, double>& metrics,
-                     const std::string& key, T& value) {
-  auto it = metrics.find(key);
-  if (it != metrics.end()) {
-    value = std::max(value, it->second);
-  }
-}
-
-void LogRomaMetrics(const std::vector<absl::StatusOr<DispatchResponse>>& result,
-                    std::unique_ptr<metric::BiddingContext>& metric_context) {
-  double execution_duration_ms = 0;
-  double max_queueing_duration_ms = 0;
-  double code_run_duration_ms = 0;
-  double json_input_parsing_duration_ms = 0;
-  double js_engine_handler_call_duration_ms = 0;
-  double queue_fullness_ratio = 0;
-  double active_worker_ratio = 0;
-
-  for (const auto& res : result) {
-    if (res.ok()) {
-      const auto& metrics = res.value().metrics;
-      UpdateMaxMetric(metrics, metric::kRawRomaExecutionDuration,
-                      execution_duration_ms);
-      UpdateMaxMetric(metrics, metric::kRawRomaExecutionQueueFullnessRatio,
-                      queue_fullness_ratio);
-      UpdateMaxMetric(metrics, metric::kRawRomaExecutionActiveWorkerRatio,
-                      active_worker_ratio);
-
-      UpdateMaxMetric(metrics, metric::kRawRomaExecutionWaitTime,
-                      max_queueing_duration_ms);
-      UpdateMaxMetric(metrics, metric::kRawRomaExecutionCodeRunDuration,
-                      code_run_duration_ms);
-      UpdateMaxMetric(metrics,
-                      metric::kRawRomaExecutionJsonInputParsingDuration,
-                      json_input_parsing_duration_ms);
-      UpdateMaxMetric(metrics,
-                      metric::kRawRomaExecutionJsEngineHandlerCallDuration,
-                      js_engine_handler_call_duration_ms);
-    }
-  }
-  LogIfError(metric_context->LogHistogram<metric::kRomaExecutionDuration>(
-      static_cast<int>(execution_duration_ms)));
-  LogIfError(
-      metric_context->LogHistogram<metric::kRomaExecutionQueueFullnessRatio>(
-          queue_fullness_ratio));
-  LogIfError(
-      metric_context->LogHistogram<metric::kRomaExecutionActiveWorkerRatio>(
-          active_worker_ratio));
-  LogIfError(
-      metric_context->LogHistogram<metric::kUdfExecutionQueueingDuration>(
-          static_cast<int>(max_queueing_duration_ms)));
-  LogIfError(
-      metric_context->LogHistogram<metric::kRomaExecutionCodeRunDuration>(
-          static_cast<int>(code_run_duration_ms)));
-  LogIfError(metric_context
-                 ->LogHistogram<metric::kRomaExecutionJsonInputParsingDuration>(
-                     static_cast<int>(json_input_parsing_duration_ms)));
-  LogIfError(
-      metric_context
-          ->LogHistogram<metric::kRomaExecutionJsEngineHandlerCallDuration>(
-              static_cast<int>(js_engine_handler_call_duration_ms)));
-}
-
 }  // namespace
 
 GenerateBidsReactor::GenerateBidsReactor(
@@ -406,7 +278,8 @@ GenerateBidsReactor::GenerateBidsReactor(
     std::unique_ptr<BiddingBenchmarkingLogger> benchmarking_logger,
     server_common::KeyFetcherManagerInterface* key_fetcher_manager,
     CryptoClientWrapperInterface* crypto_client,
-    const BiddingServiceRuntimeConfig& runtime_config)
+    const BiddingServiceRuntimeConfig& runtime_config,
+    AdtechEnrollmentCacheInterface* adtech_attestation_cache)
     : BaseGenerateBidsReactor<
           GenerateBidsRequest, GenerateBidsRequest::GenerateBidsRawRequest,
           GenerateBidsResponse, GenerateBidsResponse::GenerateBidsRawResponse>(
@@ -422,7 +295,9 @@ GenerateBidsReactor::GenerateBidsReactor(
               // PA Auctions.
               : AuctionScope::AUCTION_SCOPE_DEVICE_COMPONENT_MULTI_SELLER),
       per_adtech_paapi_contributions_limit_(
-          runtime_config.per_adtech_paapi_contributions_limit) {
+          runtime_config.per_adtech_paapi_contributions_limit),
+      cancellable_grpc_context_manager_(
+          std::make_shared<CancellableGrpcContextManager>()) {
   PS_CHECK_OK(
       [this]() {
         PS_ASSIGN_OR_RETURN(metric_context_,
@@ -453,7 +328,19 @@ GenerateBidsReactor::GenerateBidsReactor(
       .enable_sampled_debug_reporting =
           raw_request_.fdo_flags().enable_sampled_debug_reporting(),
       .debug_reporting_sampling_upper_bound =
-          runtime_config.debug_reporting_sampling_upper_bound};
+          runtime_config.debug_reporting_sampling_upper_bound,
+      .attestation_cache = adtech_attestation_cache};
+}
+
+void GenerateBidsReactor::OnCancel() {
+  if (absl::GetFlag(FLAGS_inference_enable_cancellation_at_bidding)) {
+    int64_t pending =
+        cancellable_grpc_context_manager_->GetPendingContextCount();
+    PS_VLOG(kPlain) << "GenerateBidsReactor::OnCancel called. Cancelling "
+                    << pending << " pending requests.";
+
+    cancellable_grpc_context_manager_->TryCancelAll();
+  }
 }
 
 void GenerateBidsReactor::Execute() {
@@ -504,8 +391,11 @@ void GenerateBidsReactor::Execute() {
       auto dispatch_request = generate_bid_request.value();
       dispatch_request.metadata =
           RomaSharedContextWithMetric<google::protobuf::Message>(
-              request_, roma_request_context_factory_.Create(), log_context_);
-      dispatch_request.tags[kRomaTimeoutTag] = roma_timeout_ms_;
+              request_,
+              roma_request_context_factory_.Create(
+                  cancellable_grpc_context_manager_),
+              log_context_);
+      dispatch_request.tags[kRomaTimeoutTag] = roma_timeout_duration_;
       dispatch_requests_.push_back(dispatch_request);
     }
   }
@@ -526,11 +416,11 @@ void GenerateBidsReactor::Execute() {
               const std::vector<absl::StatusOr<DispatchResponse>>& result) {
             int js_execution_time_ms =
                 (absl::Now() - start_js_execution_time) / absl::Milliseconds(1);
-            LogIfError(
-                metric_context_->LogHistogram<metric::kUdfExecutionDuration>(
-                    js_execution_time_ms));
+            LogIfError(metric_context_
+                           ->LogHistogram<metric::kUdfBatchExecutionDuration>(
+                               js_execution_time_ms));
             GenerateBidsCallback(result);
-            LogRomaMetrics(result, metric_context_);
+            LogRomaMetrics(result, metric_context_.get());
             EncryptResponseAndFinish(grpc::Status::OK);
           },
           [this]() {
@@ -553,7 +443,7 @@ void GenerateBidsReactor::Execute() {
                    ->AccumulateMetric<metric::kBiddingErrorCountByErrorCode>(
                        1, metric::kBiddingGenerateBidsFailedToDispatchCode));
     PS_LOG(ERROR, log_context_)
-        << "Execution request failed for batch: " << raw_request_.DebugString()
+        << "Execution request failed: "
         << status.ToString(absl::StatusToStringMode::kWithEverything);
     EncryptResponseAndFinish(
         grpc::Status(grpc::StatusCode::INTERNAL, status.ToString()));
@@ -752,6 +642,17 @@ void GenerateBidsReactor::EncryptResponseAndFinish(grpc::Status status) {
   Finish(status);
 }
 
-void GenerateBidsReactor::OnDone() { delete this; }
+void GenerateBidsReactor::OnDone() {
+  if (cancellable_grpc_context_manager_->GetPendingContextCount()) {
+    // If this log is triggering, it means either (1) you have forgotten
+    // to call to ReportRPCFinish() after the context is done after the call
+    // or (2) there is a significant error in the lifetime of the reactor.
+    // The reactor should outlive completion of all requests.
+    PS_LOG(ERROR, log_context_) << "OnDone triggered while requests pending. "
+                                << "This may cause a segmentation fault.";
+  }
+
+  delete this;
+}
 
 }  // namespace privacy_sandbox::bidding_auction_servers

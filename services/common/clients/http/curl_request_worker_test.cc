@@ -22,6 +22,7 @@
 
 #include "absl/status/status.h"
 #include "absl/synchronization/blocking_counter.h"
+#include "absl/synchronization/notification.h"
 #include "absl/time/time.h"
 #include "grpc/event_engine/event_engine.h"
 #include "grpc/grpc.h"
@@ -47,10 +48,12 @@ class CurlRequestWorkerTest : public ::testing::Test {
         grpc_event_engine::experimental::CreateEventEngine());
   }
 
+  absl::Notification done_;
   std::unique_ptr<server_common::EventEngineExecutor> executor_;
   std::unique_ptr<CurlRequestData> request_ = std::make_unique<CurlRequestData>(
+      std::vector<std::string>{},
       // NOLINTNEXTLINE
-      std::vector<std::string>{}, [](absl::StatusOr<HTTPResponse>) {},
+      [this](absl::StatusOr<HTTPResponse>) { done_.Notify(); },
       std::vector<std::string>{}, false);
   server_common::GrpcInit gprc_init;
 };
@@ -74,10 +77,12 @@ TEST_F(CurlRequestWorkerTest, WorkerDqueuesWork) {
                                         &queue));
 #pragma clang diagnostic pop
   EXPECT_TRUE(queue.Empty());
+  done_.WaitForNotification();
 }
 
 TEST_F(CurlRequestWorkerTest, WorkersDqueueWork) {
   const int queue_capacity = 10;
+  absl::BlockingCounter done(queue_capacity);
   CurlRequestQueue queue(executor_.get(), /*capacity=*/queue_capacity,
                          kBigWaitTime);
   {
@@ -85,8 +90,9 @@ TEST_F(CurlRequestWorkerTest, WorkersDqueueWork) {
     for (int i = 0; i < queue_capacity; ++i) {
       std::unique_ptr<CurlRequestData> request =
           std::make_unique<CurlRequestData>(
+              std::vector<std::string>{},
               // NOLINTNEXTLINE
-              std::vector<std::string>{}, [](absl::StatusOr<HTTPResponse>) {},
+              [&done](absl::StatusOr<HTTPResponse>) { done.DecrementCount(); },
               std::vector<std::string>{}, false);
       queue.Enqueue(std::move(request));
     }
@@ -111,6 +117,7 @@ TEST_F(CurlRequestWorkerTest, WorkersDqueueWork) {
                                         &queue));
 #pragma clang diagnostic pop
   EXPECT_TRUE(queue.Empty());
+  done.Wait();
 }
 
 }  // namespace

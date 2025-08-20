@@ -12,133 +12,86 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Resource to create Parc Kubernetes Service
-resource "kubernetes_service" "parc_service" {
-  metadata {
-    name      = "${var.service}-service"
-    namespace = var.namespace
-    labels = {
-      app = var.service
-    }
-    annotations = {
-      "service.beta.kubernetes.io/azure-load-balancer-internal" = "true"
-    }
-  }
-  spec {
-    selector = {
-      app = var.service
-    }
-    port {
-      protocol    = "TCP"
-      port        = var.parc_port
-      target_port = var.parc_port
-      name        = "grpc"
-    }
-    type = "LoadBalancer"
-  }
-}
-
 # Data resource to obtain Parc server Service IP Address
 data "kubernetes_service" "parc_service" {
   metadata {
-    name      = kubernetes_service.parc_service.metadata[0].name
-    namespace = kubernetes_service.parc_service.metadata[0].namespace
-  }
-}
-
-# Resource to create Parc server Kubernetes Deployment
-resource "kubernetes_deployment" "parc-deployment" {
-  metadata {
-    name      = "${var.service}-deployment"
+    name      = "${var.service}-service"
     namespace = var.namespace
-    labels = {
-      app = var.service
-    }
   }
-
-  spec {
-    replicas = 1
-
-    selector {
-      match_labels = {
-        app = var.service
-      }
-    }
-
-    template {
-      metadata {
-        labels = {
-          app = var.service
-        }
-        annotations = {
-          configmap_hash = sha256(jsonencode(kubernetes_config_map.parc-parameters.data))
-        }
-      }
-
-      spec {
-        container {
-          name              = "${var.service}-container"
-          image             = var.parc_image
-          image_pull_policy = "IfNotPresent"
-          args = [
-            "--address=0.0.0.0",
-            "--port=${var.parc_port}",
-            "--verbose",
-            "--parameters_file_path=/parc/data/parameters.jsonl",
-            "--otel_collector=${var.otel_collector_endpoint}:${var.otel_grpc_port}"
-          ]
-          volume_mount {
-            name       = "${var.service}-parameters"
-            mount_path = "/parc/data"
-            read_only  = true
-          }
-          port {
-            container_port = var.parc_port
-          }
-        }
-
-        volume {
-          name = "${var.service}-parameters"
-          config_map {
-            name = "${var.service}-parameters"
-          }
-        }
-      }
-    }
-  }
-  timeouts {
-    create = "2m"
-    update = "2m"
-    delete = "2m"
-  }
+  depends_on = [helm_release.parc_service]
 }
 
-# Resource to create Parc server Kubernetes ConfigMap
-resource "kubernetes_config_map" "parc-parameters" {
+# Data Resource For Parc Service Account to have necessary role permissions
+data "kubernetes_service_account" "parc_aks_sa" {
+  metadata {
+    name      = "${var.service}-service-account"
+    namespace = var.namespace
+  }
+  depends_on = [helm_release.parc_service]
+}
+
+# Data Resource For Parc ConfigMap in order to track when the Parc and B&A servers need to be restarted.
+data "kubernetes_config_map" "parc-parameters" {
   metadata {
     name      = "${var.service}-parameters"
     namespace = var.namespace
   }
-
-  data = {
-    "parameters.jsonl" = resource.local_file.updated_app_parameters_jsonl.content
-  }
+  depends_on = [helm_release.parc_service]
 }
 
-# Variables and Resource to create a JSONL file with operator and environment tagged parameters from a JSON file.
-locals {
-  original_json = jsondecode(file("${path.root}/${var.operator}_app_parameters.json"))
+# Data Resource for Parc Blob Storage Account stored in onetime project configuration
+data "azurerm_storage_account" "parc_storage_account" {
+  name                = var.storage_account_name
+  resource_group_name = var.storage_account_resource_group
+}
 
-  # Corrected syntax for the 'for' expression inside the list constructor
-  updated_jsonl = join("\n", [
-    for key, value in local.original_json : jsonencode({
-      key   = "${var.operator}-${var.environment}-${key}"
-      value = value
+# Helm Release to install Parc Service, ConfigMap, and Deployment.
+resource "helm_release" "parc_service" {
+  name             = "${var.operator}-${var.environment}-${var.region}-parc-service"
+  chart            = "../../../helm/parc-chart"
+  namespace        = var.namespace
+  create_namespace = true
+  timeout          = 240
+  atomic           = true
+
+  values = [
+    "${file("../../../helm/parc-chart/values.yaml")}",
+    yamlencode({
+      replicaCount = 1
+      serviceName  = var.service
+      parc = {
+        port                         = var.parc_port
+        userAssignedIdentityClientId = var.parc_user_assigned_identity_client_id
+        image = {
+          repository = var.parc_image
+          pullPolicy = "Always"
+          tag        = "latest"
+        }
+        otel = {
+          collectorEndpoint = "collector.azure.internal"
+          grpcPort          = 4317
+        }
+        blob_http_endpoint = data.azurerm_storage_account.parc_storage_account.primary_blob_endpoint
+        useWorkloadAuth    = true
+        useByoc            = var.use_byoc
+        feService          = var.fe_service
+      }
+      parameters = {
+        operator    = var.operator
+        environment = var.environment
+        originalParametersJson = jsondecode(templatefile("${path.root}/${var.operator}_app_parameters.json", {
+          environment = var.environment
+        }))
+      }
+      service = {
+        annotations = {
+          "service.beta.kubernetes.io/azure-load-balancer-internal" = "true"
+        }
+      }
+      serviceAccount = {
+        name = "${var.service}-service-account"
+      }
+      fullnameOverride = var.service
     })
-  ])
-}
-
-resource "local_file" "updated_app_parameters_jsonl" {
-  filename = "${path.module}/${var.operator}_${var.environment}_updated_app_parameters.jsonl"
-  content  = local.updated_jsonl
+  ]
 }

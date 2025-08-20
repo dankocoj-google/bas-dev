@@ -405,6 +405,7 @@ cc_test(
     ],
     deps = [
         ":chaffing_utils",
+        "//services/common/chaffing:mock_moving_median",
         "//services/common/chaffing:mock_moving_median_manager",
         "//services/common/random:mock_rng",
         "@com_google_googletest//:gtest",

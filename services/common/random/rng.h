@@ -33,11 +33,15 @@ class RandomNumberGenerator {
   explicit RandomNumberGenerator(std::size_t seed) : generator_(seed) {}
   virtual ~RandomNumberGenerator() {}
 
-  // Returns a uniform random integer within the inclusive range [lower, upper].
+  // Returns a uniform jnteger within the inclusive range [lower, upper].
   virtual int GetUniformInt(int lower, int upper);
 
-  // Returns a uniform random double within the range [lower, upper).
-  virtual double GetUniformReal(double lower, double upper);
+  // Returns a uniform double within the range [lower, upper).
+  virtual double GetUniformDouble(double lower, double upper);
+
+  // Returns a normally distributed double sampled from the specified mean and
+  // standard deviation.
+  virtual double GetNormalDouble(double mean, double std_dev);
 
   // Shuffles the elements in the vector.
   virtual void Shuffle(std::vector<absl::string_view>& vector);
@@ -49,7 +53,7 @@ class RandomNumberGenerator {
   }
 
   // Performs random sampling based on the provided rate in parts per million.
-  virtual bool RandomSample(int sample_rate_micro);
+  virtual bool ShouldSample(int sample_rate_micro);
 
  private:
   std::mt19937 generator_;

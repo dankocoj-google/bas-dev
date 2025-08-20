@@ -122,6 +122,12 @@ ABSL_FLAG(std::optional<int64_t>, sfe_tcmalloc_max_total_thread_cache_bytes,
 ABSL_FLAG(std::optional<std::string>, k_anon_api_key, "",
           "API key used to query hashes from k-anon service. Required when "
           "k-anon is enabled.");
+ABSL_FLAG(std::optional<std::string>, k_anon_test_server,
+          "kanonymityquery.googleapis.com",
+          "k-anon test server address. Used only when TEST_MODE is true.");
+ABSL_FLAG(std::optional<bool>, k_anon_server_plaintext, false,
+          "Whether to use plaintext/insecure mode when querying k-anon "
+          "service. Helpful for testing fake k-anon instances.");
 ABSL_FLAG(
     std::optional<bool>, allow_compressed_auction_config, false,
     "Enable reading of the compressed auction config field in SelectAdRequest");
@@ -167,6 +173,9 @@ ABSL_FLAG(std::optional<int>, curl_sfe_queue_max_wait_ms, 1000,
 ABSL_FLAG(std::optional<int>, curl_sfe_work_queue_length, 5000,
           "Maximum number of outstanding curl requests that are allowed to "
           "wait for processing");
+ABSL_FLAG(std::optional<int>, sfe_bfe_compression_algo, 1L,
+          "Compression algorithm used between SFE and BFE. 0 - uncompressed, 1 "
+          "- DEFLATE (gzip), 2 - zstd");
 
 namespace privacy_sandbox::bidding_auction_servers {
 
@@ -298,6 +307,8 @@ absl::StatusOr<TrustedServersConfigClient> GetConfigClient(
   config_client.SetFlag(FLAGS_sfe_tcmalloc_max_total_thread_cache_bytes,
                         SFE_TCMALLOC_MAX_TOTAL_THREAD_CACHE_BYTES);
   config_client.SetFlag(FLAGS_k_anon_api_key, K_ANON_API_KEY);
+  config_client.SetFlag(FLAGS_k_anon_test_server, K_ANON_TEST_SERVER);
+  config_client.SetFlag(FLAGS_k_anon_server_plaintext, K_ANON_SERVER_PLAINTEXT);
   config_client.SetFlag(FLAGS_enable_chaffing, ENABLE_CHAFFING);
   config_client.SetFlag(FLAGS_debug_sample_rate_micro, DEBUG_SAMPLE_RATE_MICRO);
   config_client.SetFlag(FLAGS_enable_priority_vector, ENABLE_PRIORITY_VECTOR);
@@ -332,6 +343,8 @@ absl::StatusOr<TrustedServersConfigClient> GetConfigClient(
                         CURL_SFE_QUEUE_MAX_WAIT_MS);
   config_client.SetFlag(FLAGS_curl_sfe_work_queue_length,
                         CURL_SFE_WORK_QUEUE_LENGTH);
+  config_client.SetFlag(FLAGS_sfe_bfe_compression_algo,
+                        SFE_BFE_COMPRESSION_ALGO);
 
   PS_RETURN_IF_ERROR(
       MaybeInitConfigClient(absl::GetFlag(FLAGS_init_config_client),
@@ -437,13 +450,15 @@ absl::Status RunServer() {
     PS_LOG(INFO) << "K-Anon is enabled on the service; instantiating the "
                     "k-anon cache manager";
     auto k_anon_client = std::make_unique<KAnonGrpcClient>(KAnonClientConfig{
-        // TODO(b/383913428): We might want to make this configurable for
-        // TEST_MODE.
-        .server_addr = kKAnonServiceAddr,
+        .server_addr = config_client.GetBooleanParameter(TEST_MODE)
+                           ? std::string(config_client.GetStringParameter(
+                                 K_ANON_TEST_SERVER))
+                           : kKAnonServiceAddr,
         .api_key =
             std::string(config_client.GetStringParameter(K_ANON_API_KEY)),
         .compression = true,
-        .secure_client = true,
+        .secure_client =
+            !config_client.GetBooleanParameter(K_ANON_SERVER_PLAINTEXT),
     });
     k_anon_cache_manager = std::make_unique<KAnonCacheManager>(
         executor.get(), std::move(k_anon_client),
@@ -481,6 +496,14 @@ absl::Status RunServer() {
     moving_median_manager = std::make_unique<MovingMedianManager>(
         string_key_set, kChaffingV2MovingMedianWindowSize,
         kChaffingV2SamplingProbablility);
+  }
+
+  // Validate once at startup that the SFE_BFE_COMPRESSION_ALGO value is valid.
+  if (!ToCompressionType(
+           config_client.GetIntParameter(SFE_BFE_COMPRESSION_ALGO))
+           .ok()) {
+    return absl::InternalError(
+        "Invalid value supplied for SFE_BFE_COMPRESSION_ALGO");
   }
 
   SellerFrontEndService seller_frontend_service(

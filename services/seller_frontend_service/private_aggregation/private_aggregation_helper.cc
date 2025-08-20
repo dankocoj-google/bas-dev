@@ -796,8 +796,8 @@ absl::StatusOr<PrivateAggregateReportingResponses> CborDecodePAggResponse(
 void HandlePrivateAggregationContributionsForGhostWinner(
     const absl::flat_hash_map<InterestGroupIdentity, int>&
         interest_group_index_map,
-    ScoreAdsResponse::AdScore& ghost_winning_score,
-    BuyerBidsResponseMap& shared_buyer_bids_map) {
+    const BuyerBidsResponseMap& shared_buyer_bids_map,
+    ScoreAdsResponse::AdScore& ghost_winning_score) {
   for (const auto& [ig_owner, get_bid_response] : shared_buyer_bids_map) {
     if (ig_owner != ghost_winning_score.interest_group_owner()) {
       continue;

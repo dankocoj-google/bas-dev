@@ -24,6 +24,7 @@
 #include "services/buyer_frontend_service/providers/bidding_signals_async_provider.h"
 #include "services/common/clients/bidding_server/bidding_async_client.h"
 #include "services/common/clients/kv_server/kv_async_client.h"
+#include "services/seller_frontend_service/util/chaffing_utils.h"
 #include "src/concurrent/executor.h"
 #include "src/encryption/key_fetcher/interface/key_fetcher_manager_interface.h"
 
@@ -40,6 +41,7 @@ struct ClientRegistry {
       key_fetcher_manager;
   std::unique_ptr<CryptoClientWrapperInterface> crypto_client;
   std::unique_ptr<KVAsyncClient> kv_async_client;
+  const ChaffMedianTrackers& chaff_median_trackers;
 };
 
 // BuyerFrontEndService provides the async server implementation to be used
@@ -58,6 +60,7 @@ class BuyerFrontEndService final : public BuyerFrontEnd::CallbackService {
       std::unique_ptr<CryptoClientWrapperInterface> crypto_client,
       std::unique_ptr<KVAsyncClient> kv_async_client,
       const GetBidsConfig config, server_common::Executor& executor,
+      const ChaffMedianTrackers& chaff_median_trackers,
       bool enable_benchmarking = false);
 
   explicit BuyerFrontEndService(ClientRegistry client_registry,
@@ -102,6 +105,7 @@ class BuyerFrontEndService final : public BuyerFrontEnd::CallbackService {
       protected_app_signals_bidding_async_client_;
   std::unique_ptr<KVAsyncClient> kv_async_client_;
   server_common::Executor& executor_;
+  const ChaffMedianTrackers& chaff_median_trackers_;
   RandomNumberGeneratorFactory rng_factory_;
 };
 

@@ -14,6 +14,8 @@
 
 #include "services/bidding_service/utils/validation.h"
 
+#include "services/common/attestation/attestation_util.h"
+
 namespace privacy_sandbox::bidding_auction_servers {
 namespace {
 
@@ -60,6 +62,35 @@ std::optional<absl::string_view> GetRejectReasonIfBuyerDebugUrlInvalid(
   return std::nullopt;
 }
 
+// Attest fDO destinations against API enrollment list.
+void AttestDebugUrls(absl::string_view ig_name, DebugReportUrls* debug_urls,
+                     AdtechEnrollmentCacheInterface* cache,
+                     RequestLogContext& log_context,
+                     metric::BiddingContext* metric_context,
+                     long& win_url_chars, long& loss_url_chars) {
+  if (cache == nullptr) {
+    return;
+  }
+  if (auto adtech_site =
+          GetValidAdTechSite(debug_urls->auction_debug_win_url());
+      (!adtech_site.ok() || !cache->Query(*adtech_site))) {
+    LogRejectedDebugUrl(debug_urls->auction_debug_win_url(),
+                        kDebugUrlRejectedDuringEnrollmentCheck, ig_name,
+                        log_context, metric_context);
+    debug_urls->clear_auction_debug_win_url();
+    win_url_chars = 0;
+  }
+  if (auto adtech_site =
+          GetValidAdTechSite(debug_urls->auction_debug_loss_url());
+      (!adtech_site.ok() || !cache->Query(*adtech_site))) {
+    LogRejectedDebugUrl(debug_urls->auction_debug_loss_url(),
+                        kDebugUrlRejectedDuringEnrollmentCheck, ig_name,
+                        log_context, metric_context);
+    debug_urls->clear_auction_debug_loss_url();
+    loss_url_chars = 0;
+  }
+}
+
 }  // namespace
 
 int ValidateBuyerDebugUrls(AdWithBid& ad_with_bid,
@@ -87,6 +118,13 @@ int ValidateBuyerDebugUrls(AdWithBid& ad_with_bid,
     LogRejectedDebugUrl(debug_urls->auction_debug_loss_url(),
                         kDebugUrlRejectedForExceedingTotalSize, ig_name,
                         log_context, metric_context);
+    ad_with_bid.clear_debug_report_urls();
+    return 0;
+  }
+
+  AttestDebugUrls(ig_name, debug_urls, config.attestation_cache, log_context,
+                  metric_context, win_url_chars, loss_url_chars);
+  if (win_url_chars == 0 && loss_url_chars == 0) {
     ad_with_bid.clear_debug_report_urls();
     return 0;
   }

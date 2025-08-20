@@ -1,0 +1,52 @@
+{{- define "parc-chart.notes" -}}
+The Parc application {{ .Release.Name }} has been deployed.
+
+1. **Service Details:**
+   Service Name:       `{{ include "parc-chart.fullname" . }}-service`
+   Service Namespace:  `{{ .Release.Namespace }}`
+   Service Type:       `{{ .Values.service.type }}`
+   Application Port:   `{{ .Values.parc.port }}`
+
+   {{- if and (eq .Values.service.type "LoadBalancer") .Values.service.annotations }}
+   {{- if hasKey .Values.service.annotations "service.beta.kubernetes.io/azure-load-balancer-internal" }}
+   {{- if eq (index .Values.service.annotations "service.beta.kubernetes.io/azure-load-balancer-internal") "true" }}
+   This service is configured as an Azure Internal Load Balancer.
+   {{- end }}
+   {{- end }}
+   {{- end }}
+
+2. **Accessing the Service:**
+   {{- if eq .Values.service.type "LoadBalancer" }}
+   To get the external IP address (or internal IP for ILB) for the gRPC service, run:
+     `kubectl get svc --namespace {{ .Release.Namespace }} {{ include "parc-chart.fullname" . }}-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}'`
+   (It may take a few minutes for the IP to be available)
+
+   Once the IP is available, you can connect to the gRPC service at:
+     `EXTERNAL_IP:{{ .Values.parc.port }}`
+   {{- else if eq .Values.service.type "ClusterIP" }}
+   The service is only reachable within the cluster at:
+     `{{ include "parc-chart.fullname" . }}-service.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.parc.port }}`
+
+   To access it locally, you can use port-forwarding:
+     `kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "parc-chart.fullname" . }}-service {{ .Values.parc.port }}:{{ .Values.parc.port }}`
+   Then connect to `localhost:{{ .Values.parc.port }}`.
+   {{- else }}
+   Service Type is `{{ .Values.service.type }}`. Refer to Kubernetes documentation for access methods.
+   {{- end }}
+
+3. **Important Kubernetes Resources:**
+   Deployment:           `{{ include "parc-chart.fullname" . }}-deployment`
+   Service Account:      `{{ .Values.serviceAccount.name }}`
+   ConfigMap Parameters: `{{ include "parc-chart.fullname" . }}-parameters`
+
+4. **Checking Generated Parameters:**
+   To inspect the `parameters.jsonl` content within the ConfigMap, run:
+     `kubectl get configmap --namespace {{ .Release.Namespace }} {{ include "parc-chart.fullname" . }}-parameters -o jsonpath='{.data.parameters\.jsonl}'`
+   You can pipe this to `jq .` for better readability if each line is a compact JSON.
+
+
+If you update `parameters.originalParametersJson` in your values file and redeploy,
+the Deployment should automatically roll out due to the ConfigMap checksum annotation.
+{{- end }}
+
+{{ template "parc-chart.notes" . }}

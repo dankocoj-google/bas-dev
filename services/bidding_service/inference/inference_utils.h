@@ -19,11 +19,14 @@
 #include <string>
 #include <vector>
 
+#include <grpcpp/grpcpp.h>
+
 #include "absl/strings/string_view.h"
 #include "proto/inference_sidecar.grpc.pb.h"
 #include "proto/inference_sidecar.pb.h"
 #include "sandbox/sandbox_executor.h"
 #include "services/common/blob_fetch/blob_fetcher.h"
+#include "services/common/clients/cancellable_grpc_context_manager.h"
 #include "services/common/clients/code_dispatcher/request_context.h"
 #include "src/roma/interface/roma.h"
 
@@ -32,7 +35,7 @@ namespace privacy_sandbox::bidding_auction_servers::inference {
 constexpr absl::string_view kInferenceFunctionName = "runInference";
 constexpr absl::string_view kGetModelPathsFunctionName = "getModelPaths";
 
-// Accesses a sandbox exectuor that uses static storage.
+// Accesses a sandbox executor that uses static storage.
 SandboxExecutor& Executor();
 
 // Creates a new stub for inference.
@@ -61,6 +64,15 @@ void GetModelPaths(
 
 // Converts a GetModelPaths response to Json string
 std::string GetModelResponseToJson(const GetModelPathsResponse& response);
+
+// Sets the gRPC deadline in the request context based on timeout flag
+void inline SetClientDeadline(std::optional<std::int64_t> timeout,
+                              grpc::ClientContext& context) {
+  if (timeout.has_value()) {
+    context.set_deadline(
+        absl::ToChronoTime(absl::Now() + absl::Milliseconds(*timeout)));
+  }
+}
 
 }  // namespace privacy_sandbox::bidding_auction_servers::inference
 

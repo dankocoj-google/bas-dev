@@ -9,6 +9,8 @@ build --workspace_status_command="bash tools/get_workspace_status"
 build:run_all_tests --cache_test_results=no
 test:run_all_tests --test_verbose_timeout_warnings
 
+# Required to find aarch64 toolchains. See https://github.com/bazelbuild/rules_docker#known-issues
+build --@io_bazel_rules_docker//transitions:enable=false
 # Required to import opentelemetry with abseil
 build --@io_opentelemetry_cpp//api:with_abseil
 # Required to build OpenTelemtry with logs API.
@@ -48,11 +50,22 @@ build:cpp_no_warn --per_file_copt=services/.*_main.cc@-Wno-unused-result
 build:cpp_no_warn --per_file_copt=services/common/telemetry/.*_test.cc@-Wno-unused-result
 # Compiler complains about main function being unused in the micro-benchmarks.
 build:cpp_no_warn --per_file_copt=services/.*_benchmarks.cc@-Wno-unused-function
+# Ignore warnings from org_gnu_libunwind while compiling signal_handler_prod and signal_handler_non_prod on aarch64
+build:cpp_no_warn --per_file_copt=services/common/util/signal_handler_(prod|non_prod)\.cc@-Wno-error
+# Ignore warnings from org_gnu_libunwind while compiling seller_frontend_service on aarch64
+build:cpp_no_warn --per_file_copt=services/seller_frontend_service/seller_frontend_main\.cc@-Wno-error
+# Ignore warnings from org_gnu_libunwind while compiling buyer_frontend_service on aarch64
+build:cpp_no_warn --per_file_copt=services/buyer_frontend_service/buyer_frontend_main\.cc@-Wno-error
+# Ignore warnings from org_gnu_libunwind while compiling bidding_service on aarch64
+build:cpp_no_warn --per_file_copt=services/bidding_service/bidding_main\.cc@-Wno-error
+# Ignore warnings from org_gnu_libunwind while compiling auction_service on aarch64
+build:cpp_no_warn --per_file_copt=services/auction_service/auction_main\.cc@-Wno-error
 
 # Enable clang-tidy
 build:clang-tidy --aspects @bazel_clang_tidy//clang_tidy:clang_tidy.bzl%clang_tidy_aspect
 build:clang-tidy --output_groups=report
 build:clang-tidy --@bazel_clang_tidy//:clang_tidy_config=//:clang_tidy_config
+build:clang-tidy --build_tag_filters=-nolint
 
 test --test_verbose_timeout_warnings
 

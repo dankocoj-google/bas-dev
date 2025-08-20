@@ -24,6 +24,7 @@
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
+#include "api/attestation.pb.h"
 #include "gmock/gmock.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/message_differencer.h"
@@ -42,6 +43,8 @@
 #include "services/auction_service/score_ads_reactor_test_util.h"
 #include "services/auction_service/udf_fetcher/adtech_code_version_util.h"
 #include "services/auction_service/utils/proto_utils.h"
+#include "services/common/attestation/adtech_enrollment_cache.h"
+#include "services/common/attestation/attestation_util.h"
 #include "services/common/clients/config/trusted_server_config_client.h"
 #include "services/common/constants/common_service_flags.h"
 #include "services/common/encryption/key_fetcher_factory.h"
@@ -77,6 +80,13 @@ using AdWithBidMetadata =
 using ProtectedAppSignalsAdWithBidMetadata =
     ScoreAdsRequest::ScoreAdsRawRequest::ProtectedAppSignalsAdWithBidMetadata;
 using ScoreAdsRawResponse = ScoreAdsResponse::ScoreAdsRawResponse;
+
+using ::wireless::android::adservices::mdd::adtech_enrollment::chrome::
+    PrivacySandboxAttestationsGatedAPIProto;
+using ::wireless::android::adservices::mdd::adtech_enrollment::chrome::
+    PrivacySandboxAttestationsProto;
+using PrivacySandboxAttestedAPIsProto =
+    PrivacySandboxAttestationsProto::PrivacySandboxAttestedAPIsProto;
 
 constexpr char kTestReportingResponseJson[] =
     R"({"reportResultResponse":{"reportResultUrl":"http://reportResultUrl.com","signalsForWinner":"{testKey:testValue}","sendReportToInvoked":true,"registerAdBeaconInvoked":true,"interactionReportingUrls":{"clickEvent":"http://event.com"}},"sellerLogs":["testLog"]})";
@@ -4166,6 +4176,147 @@ TEST_F(ScoreAdsReactorTest,
   ScoreAdsResponse::ScoreAdsRawResponse raw_response;
   ASSERT_TRUE(raw_response.ParseFromString(response.response_ciphertext()));
   VerifyReportingUrlsInScoreAdsResponseForComponentAuction(raw_response);
+}
+
+TEST_F(ScoreAdsReactorTest, ReturnsEmptyDebugReportWhenUrlFailsAttestation) {
+  MockV8DispatchClient dispatcher;
+  RawRequest raw_request = BuildRawRequest(
+      {BuildTestAdWithBidMetadata(), GetTestAdWithBidBar()},
+      {.enable_debug_reporting = true, .enable_sampled_debug_reporting = true});
+
+  EXPECT_CALL(dispatcher, BatchExecute)
+      .WillRepeatedly([](std::vector<DispatchRequest>& batch,
+                         BatchDispatchDoneCallback done_callback) {
+        std::vector<std::string> score_logic;
+        score_logic.reserve(batch.size());
+        for (int current_score = 0; current_score < batch.size();
+             ++current_score) {
+          // Last IG wins auction.
+          score_logic.push_back(
+              absl::Substitute(kAdScoreWithDebugUrlsTemplate, current_score));
+        }
+        return FakeExecute(batch, std::move(done_callback),
+                           std::move(score_logic), true, true);
+      });
+  AuctionServiceRuntimeConfig runtime_config = {
+      .enable_seller_debug_url_generation = true,
+      .debug_reporting_sampling_upper_bound = 1};
+  ScoreAdsReactorTestHelper test_helper;
+  // Debug pings should not be sent from the server since attestation failed.
+  EXPECT_CALL(*test_helper.async_reporter, DoReport).Times(0);
+
+  // Empty cache.
+  std::unique_ptr<AdtechEnrollmentCache> enrollment_cache =
+      std::make_unique<AdtechEnrollmentCache>();
+  auto adtech_loss_site = GetValidAdTechSite(kDebugLossUrlForWinningIg);
+  auto adtech_win_site = GetValidAdTechSite(kDebugWinUrlForWinningIg);
+  ASSERT_TRUE(adtech_loss_site.ok()) << adtech_loss_site.status();
+  ASSERT_TRUE(adtech_win_site.ok()) << adtech_win_site.status();
+  ASSERT_FALSE(enrollment_cache->Query(*adtech_loss_site));
+  ASSERT_FALSE(enrollment_cache->Query(*adtech_win_site));
+
+  auto response = test_helper.ExecuteScoreAds(
+      raw_request, dispatcher, runtime_config, enrollment_cache.get());
+
+  ScoreAdsResponse::ScoreAdsRawResponse raw_response;
+  ASSERT_TRUE(raw_response.ParseFromString(response.response_ciphertext()));
+  // Debug reports should not exist in raw response.
+  EXPECT_FALSE(raw_response.has_seller_debug_reports());
+}
+
+TEST_F(ScoreAdsReactorTest, ReturnsDebugReportWhenAttestationPasses) {
+  MockV8DispatchClient dispatcher;
+  RawRequest raw_request = BuildRawRequest(
+      {BuildTestAdWithBidMetadata(), GetTestAdWithBidBar()},
+      {.enable_debug_reporting = true, .enable_sampled_debug_reporting = true});
+
+  EXPECT_CALL(dispatcher, BatchExecute)
+      .WillRepeatedly([](std::vector<DispatchRequest>& batch,
+                         BatchDispatchDoneCallback done_callback) {
+        std::vector<std::string> score_logic;
+        score_logic.reserve(batch.size());
+        for (int current_score = 0; current_score < batch.size();
+             ++current_score) {
+          // Last IG wins auction.
+          score_logic.push_back(
+              absl::Substitute(kAdScoreWithDebugUrlsTemplate, current_score));
+        }
+        return FakeExecute(batch, std::move(done_callback),
+                           std::move(score_logic), true, true);
+      });
+
+  AuctionServiceRuntimeConfig runtime_config = {
+      .enable_seller_debug_url_generation = true,
+      .debug_reporting_sampling_upper_bound = 1};
+  ScoreAdsReactorTestHelper test_helper;
+  EXPECT_CALL(*test_helper.async_reporter, DoReport).Times(0);
+
+  // Debug URLs are enrolled, and are in cache.
+  std::unique_ptr<AdtechEnrollmentCache> enrollment_cache =
+      std::make_unique<AdtechEnrollmentCache>();
+  auto adtech_loss_site = GetValidAdTechSite(kDebugLossUrlForLosingIg);
+  auto adtech_win_site = GetValidAdTechSite(kDebugWinUrlForWinningIg);
+  ASSERT_TRUE(adtech_loss_site.ok()) << adtech_loss_site.status();
+  ASSERT_TRUE(adtech_win_site.ok()) << adtech_win_site.status();
+
+  PrivacySandboxAttestationsProto attestation_proto;
+  ASSERT_TRUE(google::protobuf::TextFormat::ParseFromString(
+      absl::StrFormat(
+          R"pb(
+            all_apis: [
+              ATTRIBUTION_REPORTING,
+              PRIVATE_AGGREGATION,
+              PROTECTED_AUDIENCE,
+              SHARED_STORAGE,
+              TOPICS
+            ]
+            sites_attested_for_all_apis: "%s"
+            sites_attested_for_all_apis: "%s"
+          )pb",
+          *adtech_loss_site, *adtech_win_site),
+      &attestation_proto));
+  auto proto_ptr = std::make_unique<const PrivacySandboxAttestationsProto>(
+      attestation_proto);
+
+  enrollment_cache->Refresh(std::move(proto_ptr));
+  ASSERT_TRUE(enrollment_cache->Query(*adtech_loss_site));
+  ASSERT_TRUE(enrollment_cache->Query(*adtech_win_site));
+
+  auto response = test_helper.ExecuteScoreAds(
+      raw_request, dispatcher, runtime_config, enrollment_cache.get());
+
+  ScoreAdsResponse::ScoreAdsRawResponse raw_response;
+  ASSERT_TRUE(raw_response.ParseFromString(response.response_ciphertext()));
+
+  DebugReports expected_debug_loss_report;
+  ASSERT_TRUE(google::protobuf::TextFormat::ParseFromString(
+      absl::Substitute(
+          R"pb(
+            reports {
+              url: "$0"
+              is_win_report: false
+              is_seller_report: true
+              is_component_win: false
+            }
+          )pb",
+          kDebugLossUrlForLosingIg),
+      &expected_debug_loss_report));
+  DebugReports expected_debug_win_report;
+  ASSERT_TRUE(google::protobuf::TextFormat::ParseFromString(
+      absl::Substitute(
+          R"pb(
+            reports {
+              url: "$0"
+              is_win_report: true
+              is_seller_report: true
+              is_component_win: false
+            }
+          )pb",
+          kDebugWinUrlForWinningIg),
+      &expected_debug_win_report));
+  EXPECT_THAT(raw_response.seller_debug_reports(),
+              AnyOf(EqualsProto(expected_debug_loss_report),
+                    EqualsProto(expected_debug_win_report)));
 }
 
 }  // namespace

@@ -28,11 +28,12 @@ resource "azurerm_application_insights" "otel_dashboard" {
   workspace_id        = azurerm_log_analytics_workspace.otel_dashboard.id
 }
 
+# Resource to create the actual visual dashboard based on a manually generated dashboard template
 resource "azurerm_portal_dashboard" "otel_dashboard" {
   name                = "${var.operator}-${var.environment}-dashboard"
   resource_group_name = var.resource_group_name
   location            = var.region
-  dashboard_properties = templatefile("${path.module}/dashboard.tftpl",
+  dashboard_properties = templatefile("${path.module}/${var.tftpl_name}.tftpl",
     {
       application_insights_id = azurerm_application_insights.otel_dashboard.id,
       operator                = var.operator,

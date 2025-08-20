@@ -23,5 +23,6 @@ cc_library(
     ],
     deps = [
         "//services/bidding_service:bidding_v8_constants",
+        "@com_google_absl//absl/time",
     ],
 )

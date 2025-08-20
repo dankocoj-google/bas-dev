@@ -51,6 +51,9 @@ inline std::ostream& operator<<(std::ostream& os, const RequestConfig& config) {
     case CompressionType::kGzip:
       os << "kGzip";
       break;
+    case CompressionType::kZstd:
+      os << "kZstd";
+      break;
     default:
       os << "UnknownCompressionType("
          << static_cast<int>(config.compression_type) << ")";

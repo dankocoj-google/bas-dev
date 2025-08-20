@@ -54,3 +54,9 @@ variable "vn_admission_controller_replica_count" {
   type        = number
   default     = 1
 }
+
+variable "availability_zones" {
+  description = "Availability Zones. Ex: 2, 3"
+  type        = list(string)
+  default     = null
+}

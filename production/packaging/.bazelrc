@@ -29,6 +29,9 @@ build:local_azure --config=platform_azure
 build:azure_azure --config=instance_azure
 build:azure_azure --config=platform_azure
 
+build:skip_inference --//:inference_build=no
+build:skip_inference --//:inference_runtime=noop
+
 build:non_prod --//:build_flavor=non_prod
 build:non_prod --//:inference_build=yes
 build:non_prod --//:inference_runtime=all

@@ -36,12 +36,13 @@ inline GenerateBidsReactorFactory GetProtectedAudienceByobReactorFactory(
              const GenerateBidsRequest* request, GenerateBidsResponse* response,
              server_common::KeyFetcherManagerInterface* key_fetcher_manager,
              CryptoClientWrapperInterface* crypto_client,
-             const BiddingServiceRuntimeConfig& runtime_config) {
+             const BiddingServiceRuntimeConfig& runtime_config,
+             AdtechEnrollmentCacheInterface* adtech_attestation_cache) {
     PS_CHECK(runtime_config.is_protected_audience_enabled, SystemLogContext());
     auto generate_bids_binary_reactor =
         std::make_unique<GenerateBidsBinaryReactor>(
             context, byob_client, request, response, key_fetcher_manager,
-            crypto_client, runtime_config);
+            crypto_client, runtime_config, adtech_attestation_cache);
     return generate_bids_binary_reactor.release();
   };
 }
@@ -75,7 +76,8 @@ inline GenerateBidsReactorFactory GetProtectedAudienceV8ReactorFactory(
              const GenerateBidsRequest* request, GenerateBidsResponse* response,
              server_common::KeyFetcherManagerInterface* key_fetcher_manager,
              CryptoClientWrapperInterface* crypto_client,
-             const BiddingServiceRuntimeConfig& runtime_config) {
+             const BiddingServiceRuntimeConfig& runtime_config,
+             AdtechEnrollmentCacheInterface* adtech_attestation_cache) {
     DCHECK(runtime_config.is_protected_audience_enabled);
     std::unique_ptr<BiddingBenchmarkingLogger> benchmarkingLogger;
     if (enable_bidding_service_benchmark) {
@@ -86,7 +88,8 @@ inline GenerateBidsReactorFactory GetProtectedAudienceV8ReactorFactory(
     }
     auto generate_bids_reactor = std::make_unique<GenerateBidsReactor>(
         context, v8_client, request, response, std::move(benchmarkingLogger),
-        key_fetcher_manager, crypto_client, runtime_config);
+        key_fetcher_manager, crypto_client, runtime_config,
+        adtech_attestation_cache);
     return generate_bids_reactor.release();
   };
 }

@@ -33,3 +33,7 @@ output "vnet_name" {
   description = "Virtual Network Name"
   value       = azurerm_virtual_network.aks-vnet.name
 }
+
+output "aks_vnet_id" {
+  value = azurerm_virtual_network.aks-vnet.id
+}

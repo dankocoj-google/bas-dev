@@ -17,6 +17,8 @@
 #ifndef SERVICES_COMMON_CLIENTS_COMPRESSION_GZIP_H_
 #define SERVICES_COMMON_CLIENTS_COMPRESSION_GZIP_H_
 
+#include <zlib.h>
+
 #include <string>
 
 #include "absl/status/statusor.h"
@@ -32,7 +34,9 @@ inline constexpr int kGzipWindowBits = 15 | 16;
 inline constexpr int kDefaultMemLevel = 8;
 
 // Compresses a string using gzip.
-absl::StatusOr<std::string> GzipCompress(absl::string_view decompressed);
+absl::StatusOr<std::string> GzipCompress(
+    absl::string_view decompressed,
+    int compression_level = Z_DEFAULT_COMPRESSION);
 
 // Decompresses a gzip compressed string.
 absl::StatusOr<std::string> GzipDecompress(absl::string_view compressed);

@@ -197,7 +197,7 @@ inline std::unique_ptr<RandomNumberGenerator> CreateRng(
 inline bool ShouldSample(int debug_sample_rate_micro, bool request_eligible,
                          RandomNumberGenerator& rng) {
   bool is_debug_eligible = request_eligible && debug_sample_rate_micro > 0;
-  return is_debug_eligible && rng.RandomSample(debug_sample_rate_micro);
+  return is_debug_eligible && rng.ShouldSample(debug_sample_rate_micro);
 }
 
 // in non_prod, modify config to consent

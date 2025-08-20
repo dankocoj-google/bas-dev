@@ -234,7 +234,8 @@ TEST_F(SecureInvokeLib, RequestToBfeNeedsClientIp) {
       std::move(crypto_client_),
       std::move(kv_async_client_),
       get_bids_config_,
-      executor};
+      executor,
+      /* chaff_median_trackers */ {}};
 
   auto start_service_result = StartLocalService(&buyer_front_end_service);
   absl::SetFlag(&FLAGS_host_addr,
@@ -253,7 +254,8 @@ TEST_F(SecureInvokeLib, RequestToBfeNeedsServerAddress) {
       std::move(crypto_client_),
       std::move(kv_async_client_),
       get_bids_config_,
-      executor};
+      executor,
+      /* chaff_median_trackers */ {}};
 
   auto start_service_result = StartLocalService(&buyer_front_end_service);
   EXPECT_DEATH(auto unused = SendRequestToBfe(default_keyset_),
@@ -270,7 +272,8 @@ TEST_F(SecureInvokeLib, RequestToBfeNeedsUserAgent) {
       std::move(crypto_client_),
       std::move(kv_async_client_),
       get_bids_config_,
-      executor};
+      executor,
+      /* chaff_median_trackers */ {}};
 
   auto start_service_result = StartLocalService(&buyer_front_end_service);
   absl::SetFlag(&FLAGS_host_addr,
@@ -292,7 +295,8 @@ TEST_F(SecureInvokeLib, RequestToBfeNeedsAcceptLanguage) {
       std::move(crypto_client_),
       std::move(kv_async_client_),
       get_bids_config_,
-      executor};
+      executor,
+      /* chaff_median_trackers */ {}};
 
   auto start_service_result = StartLocalService(&buyer_front_end_service);
   absl::SetFlag(&FLAGS_host_addr,
@@ -314,7 +318,8 @@ TEST_F(SecureInvokeLib, RequestToBfeReturnsAResponse) {
       std::move(crypto_client_),
       std::move(kv_async_client_),
       get_bids_config_,
-      executor};
+      executor,
+      /* chaff_median_trackers */ {}};
 
   auto start_service_result = StartLocalService(&buyer_front_end_service);
   std::unique_ptr<BuyerFrontEnd::StubInterface> stub =
@@ -340,7 +345,8 @@ TEST_F(SecureInvokeLib,
       std::move(crypto_client_),
       std::move(kv_async_client_),
       get_bids_config_,
-      executor};
+      executor,
+      /* chaff_median_trackers */ {}};
 
   auto start_service_result = StartLocalService(&buyer_front_end_service);
   std::unique_ptr<BuyerFrontEnd::StubInterface> stub =
@@ -366,7 +372,8 @@ TEST_F(SecureInvokeLib, RequestToBfeReturnsAResponseWithDebugReportingEnabled) {
       std::move(crypto_client_),
       std::move(kv_async_client_),
       get_bids_config_,
-      executor};
+      executor,
+      /* chaff_median_trackers */ {}};
 
   auto start_service_result = StartLocalService(&buyer_front_end_service);
   std::unique_ptr<BuyerFrontEnd::StubInterface> stub =
@@ -393,7 +400,8 @@ TEST_F(SecureInvokeLib,
       std::move(crypto_client_),
       std::move(kv_async_client_),
       get_bids_config_,
-      executor};
+      executor,
+      /* chaff_median_trackers */ {}};
 
   auto start_service_result = StartLocalService(&buyer_front_end_service);
   std::unique_ptr<BuyerFrontEnd::StubInterface> stub =
@@ -420,7 +428,8 @@ TEST_F(SecureInvokeLib, IncludesTopLevelSellerInBfeInput) {
       std::move(crypto_client_),
       std::move(kv_async_client_),
       get_bids_config_,
-      executor};
+      executor,
+      /* chaff_median_trackers */ {}};
 
   auto start_service_result = StartLocalService(&buyer_front_end_service);
   std::unique_ptr<BuyerFrontEnd::StubInterface> stub =
@@ -446,7 +455,8 @@ TEST_F(SecureInvokeLib,
       std::move(crypto_client_),
       std::move(kv_async_client_),
       get_bids_config_,
-      executor};
+      executor,
+      /* chaff_median_trackers */ {}};
 
   auto start_service_result = StartLocalService(&buyer_front_end_service);
   std::unique_ptr<BuyerFrontEnd::StubInterface> stub =
@@ -472,7 +482,8 @@ TEST_F(SecureInvokeLib, RequestToBfeNeedsValidKey) {
       std::move(crypto_client_),
       std::move(kv_async_client_),
       get_bids_config_,
-      executor};
+      executor,
+      /* chaff_median_trackers */ {}};
 
   auto start_service_result = StartLocalService(&buyer_front_end_service);
   std::unique_ptr<BuyerFrontEnd::StubInterface> stub =
@@ -499,7 +510,8 @@ TEST_F(SecureInvokeLib, UsesKeyForBfeEncryption) {
       std::move(crypto_client_),
       std::move(kv_async_client_),
       get_bids_config_,
-      executor};
+      executor,
+      /* chaff_median_trackers */ {}};
 
   auto start_service_result = StartLocalService(&buyer_front_end_service);
   std::unique_ptr<BuyerFrontEnd::StubInterface> stub =

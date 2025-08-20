@@ -41,6 +41,10 @@ int main(int argc, char** argv) {
             config)
             .ok())
       << "Could not set TCMalloc config.";
+  CHECK(privacy_sandbox::bidding_auction_servers::inference::
+            SetInferenceCancellationFlag(config)
+                .ok())
+      << "Could not set cancellation flag.";
 
   if (absl::Status run_status =
           privacy_sandbox::bidding_auction_servers::inference::Run(config);

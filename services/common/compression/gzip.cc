@@ -20,7 +20,8 @@
 
 namespace privacy_sandbox::bidding_auction_servers {
 
-absl::StatusOr<std::string> GzipCompress(absl::string_view uncompressed) {
+absl::StatusOr<std::string> GzipCompress(absl::string_view uncompressed,
+                                         int compression_level) {
   z_stream zs;
   zs.zalloc = Z_NULL;
   zs.zfree = Z_NULL;
@@ -29,7 +30,7 @@ absl::StatusOr<std::string> GzipCompress(absl::string_view uncompressed) {
   zs.next_in = (Bytef*)uncompressed.data();
 
   int deflate_init_status =
-      deflateInit2(&zs, Z_DEFAULT_COMPRESSION, Z_DEFLATED, kGzipWindowBits | 16,
+      deflateInit2(&zs, compression_level, Z_DEFLATED, kGzipWindowBits | 16,
                    kDefaultMemLevel, Z_DEFAULT_STRATEGY);
   if (deflate_init_status != Z_OK) {
     return absl::InternalError(

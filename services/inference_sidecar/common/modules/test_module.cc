@@ -21,12 +21,14 @@
 #include <unistd.h>
 
 #include <string>
+#include <utility>
 
 #include "absl/log/absl_log.h"
 #include "absl/log/check.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "modules/module_interface.h"
+#include "proto/inference_payload.pb.h"
 #include "proto/inference_sidecar.pb.h"
 #include "sandboxed_api/util/runfiles.h"
 
@@ -44,17 +46,24 @@ TestModule::~TestModule() {
 }
 
 absl::StatusOr<PredictResponse> TestModule::Predict(
-    const PredictRequest& request, const RequestContext& request_context) {
+    const PredictRequest& request, const RequestContext& request_context,
+    const CancellableServerContext& server_context) {
   // For testing consented debugging.
   INFERENCE_LOG(INFO, request_context) << kConsentedLogMsg;
   // Returns a placeholder value.
   PredictResponse response;
-  response.set_output("0.57721");
+  if (request.has_proto_input()) {
+    BatchInferenceResponse proto_output;
+    *(response.mutable_proto_output()) = std::move(proto_output);
+  } else {
+    response.set_output("0.57721");
+  }
   return response;
 }
 
 absl::StatusOr<RegisterModelResponse> TestModule::RegisterModel(
-    const RegisterModelRequest& request) {
+    const RegisterModelRequest& request,
+    const CancellableServerContext& server_context) {
   // Returns empty response.
   RegisterModelResponse response;
 
@@ -80,7 +89,8 @@ absl::StatusOr<RegisterModelResponse> TestModule::RegisterModel(
 }
 
 absl::StatusOr<DeleteModelResponse> TestModule::DeleteModel(
-    const DeleteModelRequest& request) {
+    const DeleteModelRequest& request,
+    const CancellableServerContext& server_context) {
   const DeleteModelResponse response;
   if (munmap(model_ptr_, model_size_) == -1) {
     ABSL_LOG(ERROR) << "Failed to munmap.";

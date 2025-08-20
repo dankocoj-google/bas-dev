@@ -14,13 +14,26 @@
 
 #include "services/bidding_service/utils/validation.h"
 
+#include <memory>
+#include <utility>
+
 #include "absl/log/check.h"
 #include "absl/strings/string_view.h"
+#include "api/attestation.pb.h"
+#include "google/protobuf/text_format.h"
 #include "gtest/gtest.h"
+#include "services/common/attestation/adtech_enrollment_cache.h"
 #include "services/common/test/random.h"
 
 namespace privacy_sandbox::bidding_auction_servers {
 namespace {
+
+using ::wireless::android::adservices::mdd::adtech_enrollment::chrome::
+    PrivacySandboxAttestationsGatedAPIProto;
+using ::wireless::android::adservices::mdd::adtech_enrollment::chrome::
+    PrivacySandboxAttestationsProto;
+using PrivacySandboxAttestedAPIsProto =
+    PrivacySandboxAttestationsProto::PrivacySandboxAttestedAPIsProto;
 
 AdWithBid MakeTestAdWithBid(float bid, bool allow_component_auction = true) {
   AdWithBid ad_with_bid = MakeARandomAdWithBid(1, 5);
@@ -182,6 +195,73 @@ TEST(ValidateBuyerDebugUrls, BothWinAndLossUrlsAreValidAndPassSampling) {
   EXPECT_EQ(ad_with_bid.debug_report_urls().auction_debug_win_url(), "win");
   EXPECT_EQ(ad_with_bid.debug_report_urls().auction_debug_loss_url(), "loss");
   EXPECT_EQ(current_total_debug_urls_chars, 11);
+}
+
+TEST(ValidateBuyerDebugUrls, AttestationCheckDropsUrls) {
+  AdWithBid ad_with_bid =
+      MakeTestAdWithBidWithDebugUrls("https://win.com", "https://loss.com");
+  long current_total_debug_urls_chars = 4;
+  // Nothing in cache, so attestation fails.
+  std::shared_ptr<AdtechEnrollmentCache> cache =
+      std::make_shared<AdtechEnrollmentCache>();
+  EXPECT_EQ(ValidateBuyerDebugUrls(ad_with_bid, current_total_debug_urls_chars,
+                                   {.max_allowed_size_debug_url_chars = 5,
+                                    .max_allowed_size_all_debug_urls_chars = 15,
+                                    .enable_sampled_debug_reporting = true,
+                                    .debug_reporting_sampling_upper_bound = 1,
+                                    .attestation_cache = cache.get()}),
+            0);
+  EXPECT_FALSE(ad_with_bid.debug_win_url_failed_sampling());
+  EXPECT_FALSE(ad_with_bid.debug_loss_url_failed_sampling());
+  EXPECT_NE(ad_with_bid.debug_report_urls().auction_debug_win_url(),
+            "https://win.com");
+  EXPECT_NE(ad_with_bid.debug_report_urls().auction_debug_loss_url(),
+            "https://loss.com");
+  EXPECT_EQ(current_total_debug_urls_chars, 4);
+}
+
+TEST(ValidateBuyerDebugUrls, ValidUrlsPassAttestation) {
+  server_common::log::SetGlobalPSVLogLevel(20);
+  PrivacySandboxAttestationsProto attestation_proto;
+  ASSERT_TRUE(google::protobuf::TextFormat::ParseFromString(
+      absl::StrFormat(
+          R"pb(
+            all_apis: [
+              ATTRIBUTION_REPORTING,
+              PRIVATE_AGGREGATION,
+              PROTECTED_AUDIENCE,
+              SHARED_STORAGE,
+              TOPICS
+            ]
+            sites_attested_for_all_apis: "%s"
+            sites_attested_for_all_apis: "%s"
+          )pb",
+          "https://win.com", "https://loss.com"),
+      &attestation_proto));
+  auto proto_ptr = std::make_unique<const PrivacySandboxAttestationsProto>(
+      attestation_proto);
+
+  AdWithBid ad_with_bid =
+      MakeTestAdWithBidWithDebugUrls("https://win.com", "https://loss.com");
+  long current_total_debug_urls_chars = 4;
+  // URLs are enrolled & valid, so attestation passes.
+  std::shared_ptr<AdtechEnrollmentCache> cache =
+      std::make_shared<AdtechEnrollmentCache>();
+  cache->Refresh(std::move(proto_ptr));
+  ASSERT_TRUE(cache->Query("https://win.com"));
+  ASSERT_TRUE(cache->Query("https://loss.com"));
+  EXPECT_EQ(ValidateBuyerDebugUrls(ad_with_bid, current_total_debug_urls_chars,
+                                   {.max_allowed_size_debug_url_chars = 20,
+                                    .max_allowed_size_all_debug_urls_chars = 40,
+                                    .enable_sampled_debug_reporting = true,
+                                    .debug_reporting_sampling_upper_bound = 1,
+                                    .attestation_cache = cache.get()}),
+            2);
+  EXPECT_EQ(ad_with_bid.debug_report_urls().auction_debug_win_url(),
+            "https://win.com");
+  EXPECT_EQ(ad_with_bid.debug_report_urls().auction_debug_loss_url(),
+            "https://loss.com");
+  EXPECT_EQ(current_total_debug_urls_chars, 35);
 }
 
 TEST(IsValidProtectedAudienceBid, ReturnsInvalidForZeroBid) {

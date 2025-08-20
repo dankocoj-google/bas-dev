@@ -121,7 +121,7 @@ absl::Status PerformPASReportWin(
       GetPASReportWinDispatchRequest(dispatch_request_config, request_data,
                                      buyer_device_signals));
   dispatch_request.tags[kRomaTimeoutTag] =
-      dispatch_request_config.roma_timeout_ms;
+      dispatch_request_config.roma_timeout_duration;
   std::vector<DispatchRequest> dispatch_requests = {
       std::move(dispatch_request)};
   return dispatcher.BatchExecute(dispatch_requests,

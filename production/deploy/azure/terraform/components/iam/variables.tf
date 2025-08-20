@@ -27,6 +27,11 @@ variable "environment" {
   type        = string
 }
 
+variable "namespace" {
+  description = "Kubernetes Namespace"
+  type        = string
+}
+
 variable "resource_group_name" {
   description = "Resource group name"
   type        = string
@@ -79,5 +84,37 @@ variable "dns_zone_name" {
 
 variable "dns_zone_resource_group" {
   description = "DNS Resource Group"
+  type        = string
+}
+
+variable "parc_service_account_name" {
+  description = "Parc Service Account Name"
+  type        = string
+}
+
+variable "parc_storage_account_resource_id" {
+  description = "Parc Blob Storage Account Resource ID"
+  type        = string
+}
+
+variable "use_byoc" {
+  description = "Bring Your Own Certificate Approach. True if enabled"
+  type        = bool
+  default     = false
+}
+
+variable "aks_key_vault_addon_identity_object_id" {
+  description = "The Object/Principal ID of the Azure Key Vault Secrets Provider add-on identity for the AKS cluster."
+  type        = string
+  default     = null
+}
+
+variable "tls_certificate_akv_name" {
+  description = "Name of the TLS Certificate Azure Key Vault"
+  type        = string
+}
+
+variable "tls_certificate_akv_resource_group_name" {
+  description = "Name of the TLS Certificate Azure Key Vault"
   type        = string
 }
